@@ -9,16 +9,20 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.List;
 import java.util.Scanner;
+import java.net.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
         // Cấu hình local (demo)
         String name = "Alice";
-        String peerId = "A3x9Km2pQz"; // TODO: nên random hoặc hash(publicKey)
+        String peerId = "A3x9Km2pQz"; 
         int rmiPort = 1099;
 
-        // Cấu hình RMI cho chính mình
-        UserConfig localConfig = new UserConfig(peerId, "GoGameService", rmiPort, "0.0.0.0");
+        String hostIp = getLocalIp();
+
+        // Cấu hình RMI cho chính mình với IP thật
+        UserConfig localConfig = new UserConfig(peerId, "GoGameService", rmiPort, hostIp);
+
         User localUser = new User(peerId, name, localConfig);
 
         // Khởi tạo RMI service
@@ -63,5 +67,38 @@ public class Main {
 
         bcast.close();
         System.exit(0);
+    }
+
+    // Lấy IPv4 của card mạng local, ưu tiên Wi-Fi/wlan, nếu không có thì lấy bất kỳ non-loopback
+    private static String getLocalIp() throws SocketException {
+        String fallback = "127.0.0.1";
+
+        // Ưu tiên interface Wi-Fi
+        for (NetworkInterface ni : java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
+            String name = ni.getDisplayName().toLowerCase();
+            if (!(name.contains("wi-fi") || name.contains("wifi") || name.contains("wlan") || name.contains("wireless"))) {
+                continue;
+            }
+            for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
+                InetAddress addr = ia.getAddress();
+                if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                    return addr.getHostAddress();
+                }
+            }
+        }
+
+        // Nếu không tìm thấy Wi-Fi, lấy bất kỳ IPv4 non-loopback
+        for (NetworkInterface ni : java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
+            if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
+            for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
+                InetAddress addr = ia.getAddress();
+                if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                    return addr.getHostAddress();
+                }
+            }
+        }
+
+        return fallback;
     }
 }

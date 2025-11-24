@@ -6,16 +6,23 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
+import java.io.File;
 import java.io.IOException;
 
 public class HelloApplication extends Application {
 
     private static Stage primaryStage;
+    private static String currentUserName;
+    private static String currentPeerId;
 
     @Override
     public void start(Stage stage) throws Exception {
         primaryStage = stage;
-        Parent root = loadFXML("dashboard.fxml");
+        // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
+        File userFile = new File("data/user.json");
+        String startFxml = userFile.exists() ? "dashboard.fxml" : "login.fxml";
+
+        Parent root = loadFXML(startFxml);
         Scene scene = new Scene(root);
 
         stage.setTitle("Go Game Online");
@@ -44,6 +51,19 @@ public class HelloApplication extends Application {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void setCurrentUser(String name, String peerId) {
+        currentUserName = name;
+        currentPeerId = peerId;
+    }
+
+    public static String getCurrentUserName() {
+        return currentUserName;
+    }
+
+    public static String getCurrentPeerId() {
+        return currentPeerId;
     }
 }
 
