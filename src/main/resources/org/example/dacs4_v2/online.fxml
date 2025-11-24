@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.dacs4_v2.viewModels.OnlineController"
+            prefWidth="1024" prefHeight="600" style="-fx-background-color: #f6f8fb;">
+    <!-- Sidebar -->
+    <left>
+        <VBox spacing="8" prefWidth="220" style="-fx-background-color: white; -fx-padding: 24 16;">
+            <children>
+                <Label text="Go Game Online" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #094c4c;"/>
+                <Separator/>
+
+                <ToggleButton text="Dashboard" maxWidth="Infinity" onAction="#onGoDashboard"/>
+                <ToggleButton text="Play Game" maxWidth="Infinity"/>
+                <ToggleButton text="Rooms" maxWidth="Infinity" onAction="#onGoRooms"/>
+                <ToggleButton text="Online" maxWidth="Infinity" selected="true" onAction="#onGoOnline"/>
+                <ToggleButton text="Statistics" maxWidth="Infinity"/>
+
+                <Pane VBox.vgrow="ALWAYS"/>
+
+                <Separator/>
+                <Button text="Settings" maxWidth="Infinity"/>
+                <Button text="Logout" maxWidth="Infinity" style="-fx-text-fill: #e04545;"/>
+            </children>
+        </VBox>
+    </left>
+
+    <!-- Main content -->
+    <center>
+        <VBox spacing="16" style="-fx-padding: 24;">
+            <children>
+                <!-- Header -->
+                <HBox alignment="CENTER_RIGHT" spacing="16">
+                    <children>
+                        <VBox spacing="4" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Online Players" style="-fx-font-size: 22; -fx-font-weight: bold;"/>
+                                <Label text="5 players online" style="-fx-text-fill: #6b7280;"/>
+                            </children>
+                        </VBox>
+                        <Label text="Online" style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 6 12; -fx-background-radius: 999;"/>
+                    </children>
+                </HBox>
+
+                <!-- Search + filters -->
+                <HBox spacing="12" alignment="CENTER_LEFT">
+                    <children>
+                        <TextField fx:id="searchField" promptText="Search players..." HBox.hgrow="ALWAYS"/>
+                        <ToggleButton text="All" selected="true"/>
+                        <ToggleButton text="Beginner"/>
+                        <ToggleButton text="Intermediate"/>
+                        <ToggleButton text="Advanced"/>
+                    </children>
+                </HBox>
+
+                <!-- Players list -->
+                <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" hbarPolicy="NEVER">
+                    <content>
+                        <VBox spacing="12" style="-fx-padding: 4;">
+                            <!-- Example player card -->
+                            <children>
+                                <HBox spacing="12" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);">
+                                    <children>
+                                        <!-- Avatar + name -->
+                                        <VBox spacing="4">
+                                            <children>
+                                                <Label text="P" style="-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;"/>
+                                            </children>
+                                        </VBox>
+                                        <VBox spacing="4" HBox.hgrow="ALWAYS">
+                                            <children>
+                                                <HBox spacing="6" alignment="CENTER_LEFT">
+                                                    <children>
+                                                        <Label text="ProPlayer123" style="-fx-font-weight: bold;"/>
+                                                        <Label text="●" style="-fx-text-fill: #22c55e;"/>
+                                                    </children>
+                                                </HBox>
+                                                <Label text="6 Dan - Japan" style="-fx-text-fill: #6b7280;"/>
+                                                <Label text="32h this month" style="-fx-text-fill: #9ca3af; -fx-font-size: 11;"/>
+                                            </children>
+                                        </VBox>
+                                        <VBox alignment="CENTER_RIGHT" spacing="8">
+                                            <children>
+                                                <Label text="2650" style="-fx-font-weight: bold;"/>
+                                                <Label text="rating" style="-fx-text-fill: #6b7280; -fx-font-size: 11;"/>
+                                                <HBox spacing="8">
+                                                    <children>
+                                                        <Button text="Challenge" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;"/>
+                                                        <Button text="💬"/>
+                                                    </children>
+                                                </HBox>
+                                            </children>
+                                        </VBox>
+                                    </children>
+                                </HBox>
+                            </children>
+                        </VBox>
+                    </content>
+                </ScrollPane>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>

@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.dacs4_v2.viewModels.DashboardController"
+            prefWidth="1024" prefHeight="600" style="-fx-background-color: #f6f8fb;">
+    <!-- Sidebar -->
+    <left>
+        <VBox spacing="8" prefWidth="220" style="-fx-background-color: white; -fx-padding: 24 16;">
+            <children>
+                <Label text="Go Game Online" style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #094c4c;"/>
+                <Separator/>
+
+                <ToggleButton text="Dashboard" maxWidth="Infinity" selected="true" onAction="#onGoDashboard"/>
+                <ToggleButton text="Play Game" maxWidth="Infinity"/>
+                <ToggleButton text="Rooms" maxWidth="Infinity" onAction="#onGoRooms"/>
+                <ToggleButton text="Online" maxWidth="Infinity" onAction="#onGoOnline"/>
+                <ToggleButton text="Statistics" maxWidth="Infinity"/>
+
+                <Pane VBox.vgrow="ALWAYS"/>
+
+                <Separator/>
+                <Button text="Settings" maxWidth="Infinity"/>
+                <Button text="Logout" maxWidth="Infinity" style="-fx-text-fill: #e04545;"/>
+            </children>
+        </VBox>
+    </left>
+
+    <!-- Main content -->
+    <center>
+        <VBox spacing="16" style="-fx-padding: 24;">
+            <children>
+                <!-- Header + status -->
+                <HBox alignment="CENTER_RIGHT" spacing="16">
+                    <children>
+                        <VBox spacing="4" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Welcome Back" style="-fx-font-size: 24; -fx-font-weight: bold;"/>
+                                <Label text="Continue your Go journey and challenge players worldwide" style="-fx-text-fill: #6b7280;"/>
+                            </children>
+                        </VBox>
+                        <Label text="Online" style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 6 12; -fx-background-radius: 999;"/>
+                    </children>
+                </HBox>
+
+                <!-- Top cards: New Game / Play with AI -->
+                <HBox spacing="16">
+                    <children>
+                        <VBox spacing="12" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 16;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="New Game" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+                                <Label text="Create a room or join an existing one" style="-fx-text-fill: #6b7280;"/>
+                                <Button text="Start Playing" maxWidth="Infinity" onAction="#onStartPlaying" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;"/>
+                            </children>
+                        </VBox>
+                        <VBox spacing="12" style="-fx-background-color: #fff3e9; -fx-background-radius: 16; -fx-padding: 16;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Play with AI" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+                                <Label text="Train against challenging AI opponents" style="-fx-text-fill: #6b7280;"/>
+                                <Button text="Challenge AI" maxWidth="Infinity" onAction="#onChallengeAI" style="-fx-background-color: #f97316; -fx-text-fill: white; -fx-background-radius: 999;"/>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+
+                <!-- Stats row -->
+                <HBox spacing="16">
+                    <children>
+                        <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Total Games" style="-fx-text-fill: #6b7280;"/>
+                                <Label text="234" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Win Rate" style="-fx-text-fill: #6b7280;"/>
+                                <Label text="62%" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Current Rank" style="-fx-text-fill: #6b7280;"/>
+                                <Label text="5 Dan" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                            </children>
+                        </VBox>
+                        <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
+                            <children>
+                                <Label text="Online Friends" style="-fx-text-fill: #6b7280;"/>
+                                <Label text="12" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                            </children>
+                        </VBox>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>
