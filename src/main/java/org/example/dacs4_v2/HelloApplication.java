@@ -9,6 +9,9 @@ import javafx.stage.Stage;
 import java.io.File;
 import java.io.IOException;
 
+import org.example.dacs4_v2.network.P2PContext;
+import org.example.dacs4_v2.network.P2PNode;
+
 public class HelloApplication extends Application {
 
     private static Stage primaryStage;
@@ -26,6 +29,17 @@ public class HelloApplication extends Application {
         stage.setTitle("Go Game Online");
         stage.setScene(scene);
         stage.show();
+
+        if (userFile.exists()) {
+            new Thread(() -> {
+                try {
+                    P2PNode node = P2PContext.getInstance().getOrCreateNode();
+                    node.requestOnlinePeers(1500);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }, "p2p-bootstrap-thread").start();
+        }
     }
 
     private static Parent loadFXML(String fxmlName) throws IOException {

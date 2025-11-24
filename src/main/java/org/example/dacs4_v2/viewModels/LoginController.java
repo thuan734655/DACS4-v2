@@ -7,6 +7,8 @@ import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.models.UserConfig;
+import org.example.dacs4_v2.network.P2PContext;
+import org.example.dacs4_v2.network.P2PNode;
 
 import java.security.SecureRandom;
 
@@ -39,6 +41,15 @@ public class LoginController {
         UserConfig config = null; // chưa có cấu hình mạng ở bước login
         User user = new User(peerId, name, config);
         UserStorage.saveUser(user);
+
+        new Thread(() -> {
+            try {
+                P2PNode node = P2PContext.getInstance().getOrCreateNode();
+                node.requestOnlinePeers(1500);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }, "p2p-bootstrap-after-login").start();
 
         HelloApplication.navigateTo("dashboard.fxml");
     }
