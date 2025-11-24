@@ -41,6 +41,7 @@
                                 <Label text="Continue your Go journey and challenge players worldwide" style="-fx-text-fill: #6b7280;"/>
                             </children>
                         </VBox>
+                        <Label fx:id="lblUserInfo" text="Guest" style="-fx-text-fill: #374151;"/>
                         <Label text="Online" style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 6 12; -fx-background-radius: 999;"/>
                     </children>
                 </HBox>

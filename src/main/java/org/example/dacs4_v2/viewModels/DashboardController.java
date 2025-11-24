@@ -1,9 +1,28 @@
 package org.example.dacs4_v2.viewModels;
 
 import javafx.fxml.FXML;
+import javafx.scene.control.Label;
 import org.example.dacs4_v2.HelloApplication;
 
 public class DashboardController {
+
+    @FXML
+    private Label lblUserInfo;
+
+    @FXML
+    public void initialize() {
+        String name = HelloApplication.getCurrentUserName();
+        String peerId = HelloApplication.getCurrentPeerId();
+        if (name == null || name.isEmpty()) {
+            name = "Guest";
+        }
+        if (peerId == null || peerId.isEmpty()) {
+            peerId = "-";
+        }
+        if (lblUserInfo != null) {
+            lblUserInfo.setText(name + " (" + peerId + ")");
+        }
+    }
 
     @FXML
     private void onGoDashboard() {
