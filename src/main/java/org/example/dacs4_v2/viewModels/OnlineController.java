@@ -67,7 +67,7 @@ public class OnlineController {
         for (User u : players) {
             String name = u.getName() != null ? u.getName() : "Unknown";
             int rank = u.getRank();
-            String rankText = rank <= 0 ? "Beginner" : (rank + " Dan");
+            String rankText = rank <= 0 ? "Beginner" : (rank + " \uD83E\uDD47");
 
             HBox card = new HBox(12);
             card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
@@ -78,10 +78,8 @@ public class OnlineController {
             avatar.setStyle("-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;");
             avatarBox.getChildren().add(avatar);
 
-            // Thông tin chính
+            // Thông tin: tên + rank
             VBox infoBox = new VBox(4);
-            infoBox.setFillWidth(true);
-
             HBox nameRow = new HBox(6);
             Label nameLabel = new Label(name);
             nameLabel.setStyle("-fx-font-weight: bold;");
@@ -89,31 +87,12 @@ public class OnlineController {
             onlineDot.setStyle("-fx-text-fill: #22c55e;");
             nameRow.getChildren().addAll(nameLabel, onlineDot);
 
-            Label rankLabel = new Label(rankText + " - Online");
+            Label rankLabel = new Label(rankText);
             rankLabel.setStyle("-fx-text-fill: #6b7280;");
 
-            Label timeLabel = new Label("active now");
-            timeLabel.setStyle("-fx-text-fill: #9ca3af; -fx-font-size: 11;");
+            infoBox.getChildren().addAll(nameRow, rankLabel);
 
-            infoBox.getChildren().addAll(nameRow, rankLabel, timeLabel);
-
-            // Cột phải: rating + nút
-            VBox rightBox = new VBox(8);
-            rightBox.setStyle("");
-            Label ratingLabel = new Label("-");
-            ratingLabel.setStyle("-fx-font-weight: bold;");
-            Label ratingText = new Label("rating");
-            ratingText.setStyle("-fx-text-fill: #6b7280; -fx-font-size: 11;");
-
-            HBox buttons = new HBox(8);
-            Button challengeBtn = new Button("Challenge");
-            challengeBtn.setStyle("-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;");
-            Button chatBtn = new Button("💬");
-            buttons.getChildren().addAll(challengeBtn, chatBtn);
-
-            rightBox.getChildren().addAll(ratingLabel, ratingText, buttons);
-
-            card.getChildren().addAll(avatarBox, infoBox, rightBox);
+            card.getChildren().addAll(avatarBox, infoBox);
             playersContainer.getChildren().add(card);
         }
     }
