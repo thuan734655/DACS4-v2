@@ -1,13 +1,10 @@
 package org.example.dacs4_v2.network.dht;
 
-import org.example.dacs4_v2.models.NeighborType;
-import org.example.dacs4_v2.models.User;
-import org.example.dacs4_v2.models.UserConfig;
+import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.io.*;
 import java.net.*;
-import java.rmi.Naming;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -74,7 +71,7 @@ public class BroadcastManager {
                     );
                     socket.send(pkt);
                 } catch (Exception e) {
-                    // ignore unreachable
+
                 }
             }
         } catch (Exception e) {
@@ -99,7 +96,6 @@ public class BroadcastManager {
         }
     }
 
-    // 🧠 Xử lý BroadcastMessage — random delay + cancel check
     private void handleBroadcast(BroadcastMessage msg, InetAddress senderAddr, int senderPort) {
         if (cancelledBroadcasts.contains(msg.id)) return;
 
@@ -150,7 +146,6 @@ public class BroadcastManager {
                         succ1Id, (succ2 != null) ? succ2.getUserId() : succ1Id, newPeerId
                 );
 
-                // 🟢 DÙNG msg.id TRONG scheduleResponse
                 if (iAmPred1) {
                     scheduleResponse(msg.id, 50 + rand(20), () -> {
                         try {

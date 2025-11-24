@@ -1,4 +1,4 @@
-package org.example.dacs4_v2.network.dht;
+package org.example.dacs4_v2.models;
 
 
 import java.io.Serializable;
