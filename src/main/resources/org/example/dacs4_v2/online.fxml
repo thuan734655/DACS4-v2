@@ -60,45 +60,7 @@
                 <!-- Players list -->
                 <ScrollPane fitToWidth="true" VBox.vgrow="ALWAYS" hbarPolicy="NEVER">
                     <content>
-                        <VBox spacing="12" style="-fx-padding: 4;">
-                            <!-- Example player card -->
-                            <children>
-                                <HBox spacing="12" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);">
-                                    <children>
-                                        <!-- Avatar + name -->
-                                        <VBox spacing="4">
-                                            <children>
-                                                <Label text="P" style="-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;"/>
-                                            </children>
-                                        </VBox>
-                                        <VBox spacing="4" HBox.hgrow="ALWAYS">
-                                            <children>
-                                                <HBox spacing="6" alignment="CENTER_LEFT">
-                                                    <children>
-                                                        <Label text="ProPlayer123" style="-fx-font-weight: bold;"/>
-                                                        <Label text="●" style="-fx-text-fill: #22c55e;"/>
-                                                    </children>
-                                                </HBox>
-                                                <Label text="6 Dan - Japan" style="-fx-text-fill: #6b7280;"/>
-                                                <Label text="32h this month" style="-fx-text-fill: #9ca3af; -fx-font-size: 11;"/>
-                                            </children>
-                                        </VBox>
-                                        <VBox alignment="CENTER_RIGHT" spacing="8">
-                                            <children>
-                                                <Label text="2650" style="-fx-font-weight: bold;"/>
-                                                <Label text="rating" style="-fx-text-fill: #6b7280; -fx-font-size: 11;"/>
-                                                <HBox spacing="8">
-                                                    <children>
-                                                        <Button text="Challenge" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;"/>
-                                                        <Button text="💬"/>
-                                                    </children>
-                                                </HBox>
-                                            </children>
-                                        </VBox>
-                                    </children>
-                                </HBox>
-                            </children>
-                        </VBox>
+                        <VBox fx:id="playersContainer" spacing="12" style="-fx-padding: 4;"/>
                     </content>
                 </ScrollPane>
             </children>

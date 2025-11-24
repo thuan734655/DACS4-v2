@@ -4,6 +4,7 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.util.List;
 import org.example.dacs4_v2.models.Game;
+import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.models.UserConfig;
 import org.example.dacs4_v2.models.Moves;
 
@@ -38,4 +39,6 @@ public interface IGoGameService extends Remote {
     // Lấy lịch sử (giới hạn 20 game)
     List<Game> getGameHistory(int limit) throws RemoteException;
 
+    // Thông báo khi discover người chơi online qua broadcast
+    void onOnlinePeerDiscovered(User user) throws RemoteException;
 }

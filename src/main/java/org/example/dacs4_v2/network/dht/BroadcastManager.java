@@ -185,6 +185,18 @@ public class BroadcastManager {
                 }
                 break;
             }
+            case "DISCOVER_ONLINE": {
+                UserConfig originConfig = (UserConfig) msg.payload.get("originConfig");
+                if (originConfig != null) {
+                    try {
+                        IGoGameService stub = getRmiStub(originConfig);
+                        stub.onOnlinePeerDiscovered(localUser);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                break;
+            }
             case "LOOKUP_PEER": {
                 String targetId = (String) msg.payload.get("targetPeerId");
                 if (localUser.getUserId().equals(targetId)) {

@@ -1,18 +1,19 @@
 package org.example.dacs4_v2.models;
-
-import java.util.ArrayList;
-import java.util.List;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-
+/**
+ * 
+ */
 public class User implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private String userId;                 // = peerId (10 ký tự ngẫu nhiên)
     private String name;
+    private int rank = 1000;
     private UserConfig userConfig;         // cấu hình RMI của chính user này
+
     private Map<NeighborType, UserConfig> neighbors; // thay vì List<UserConfig>
 
     // Constructor
@@ -30,6 +31,9 @@ public class User implements Serializable {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public int getRank() { return rank; }
+    public void setRank(int rank) { this.rank = rank; }
 
     public UserConfig getUserConfig() { return userConfig; }
     public void setUserConfig(UserConfig userConfig) { this.userConfig = userConfig; }

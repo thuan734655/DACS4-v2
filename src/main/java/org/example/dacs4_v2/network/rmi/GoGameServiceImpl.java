@@ -8,8 +8,11 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.example.dacs4_v2.models.*;
+import org.example.dacs4_v2.network.P2PContext;
 
-
+/**
+ * 
+ */
 public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameService {
     private final User localUser;
     private final ConcurrentHashMap<String, Game> activeGames = new ConcurrentHashMap<>();
@@ -74,6 +77,15 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         int n = Math.min(limit, gameHistory.size());
         return new ArrayList<>(gameHistory.subList(0, n));
     }
+
+    @Override
+    public void onOnlinePeerDiscovered(User user) throws RemoteException {
+        P2PContext ctx = P2PContext.getInstance();
+        if (ctx.getNode() != null) {
+            ctx.getNode().addOnlinePeer(user);
+        }
+    }
+
     // rmi/GoGameServiceImpl.java
     @Override
     public void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException {
