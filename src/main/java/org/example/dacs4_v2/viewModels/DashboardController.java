@@ -3,6 +3,8 @@ package org.example.dacs4_v2.viewModels;
 import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.data.UserStorage;
+import org.example.dacs4_v2.models.User;
 
 public class DashboardController {
 
@@ -11,8 +13,14 @@ public class DashboardController {
 
     @FXML
     public void initialize() {
-        String name = HelloApplication.getCurrentUserName();
-        String peerId = HelloApplication.getCurrentPeerId();
+        String name = null;
+        String peerId = null;
+
+        User user = UserStorage.loadUser();
+        if (user != null) {
+            name = user.getName();
+            peerId = user.getUserId();
+        }
         if (name == null || name.isEmpty()) {
             name = "Guest";
         }

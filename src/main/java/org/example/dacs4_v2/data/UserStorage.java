@@ -10,4 +10,8 @@ public class UserStorage {
         if (user == null) return;
         DataStorage.save(user, USER_FILE);
     }
+
+    public static User loadUser() {
+        return DataStorage.load(USER_FILE, User.class);
+    }
 }

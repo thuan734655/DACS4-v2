@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
@@ -25,6 +26,18 @@ public class DataStorage {
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static <T> T load(String fileName, Class<T> type) {
+        if (fileName == null || fileName.isEmpty() || type == null) return null;
+        File file = new File(DATA_DIR, fileName);
+        if (!file.exists()) return null;
+        try (FileReader reader = new FileReader(file)) {
+            return GSON.fromJson(reader, type);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

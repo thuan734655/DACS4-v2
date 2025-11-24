@@ -12,8 +12,6 @@ import java.io.IOException;
 public class HelloApplication extends Application {
 
     private static Stage primaryStage;
-    private static String currentUserName;
-    private static String currentPeerId;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -53,17 +51,5 @@ public class HelloApplication extends Application {
         }
     }
 
-    public static void setCurrentUser(String name, String peerId) {
-        currentUserName = name;
-        currentPeerId = peerId;
-    }
-
-    public static String getCurrentUserName() {
-        return currentUserName;
-    }
-
-    public static String getCurrentPeerId() {
-        return currentPeerId;
-    }
 }
 

@@ -35,8 +35,6 @@ public class LoginController {
             return;
         }
         String peerId = randomPeerId(10);
-        HelloApplication.setCurrentUser(name, peerId);
-
         // Tạo đối tượng User với thông tin tối thiểu, các thông tin khác coi như rỗng
         UserConfig config = null; // chưa có cấu hình mạng ở bước login
         User user = new User(peerId, name, config);
