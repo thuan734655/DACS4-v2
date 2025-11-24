@@ -3,9 +3,11 @@ package org.example.dacs4_v2.network.dht;
 import org.example.dacs4_v2.models.NeighborType;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.models.UserConfig;
+import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.io.*;
 import java.net.*;
+import java.rmi.Naming;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -130,20 +132,64 @@ public class BroadcastManager {
                 String newPeerId = (String) msg.payload.get("newPeerId");
                 UserConfig newConfig = (UserConfig) msg.payload.get("newPeerConfig");
 
-                // So sánh: newPeerId có nằm giữa mình và successor không?
-                if (isResponsibleFor(newPeerId)) {
-                    // Mình là predecessor gần nhất → phản hồi qua RMI
-                    System.out.println("[DHT] Tôi là predecessor của: " + newPeerId);
+                UserConfig succ1 = localUser.getNeighbor(NeighborType.SUCCESSOR_1);
+                UserConfig succ2 = localUser.getNeighbor(NeighborType.SUCCESSOR_2);
+                UserConfig pred1 = localUser.getNeighbor(NeighborType.PREDECESSOR_1);
+                UserConfig pred2 = localUser.getNeighbor(NeighborType.PREDECESSOR_2);
 
-                    // Gửi RMI notify (giả lập — bạn sẽ implement trong GoGameServiceImpl)
-                    // real code: successorService.notifyPredecessor(localUser.getUserConfig());
+                String myId = localUser.getUserId();
+                String succ1Id = (succ1 != null) ? succ1.getUserId() : myId;
+                String pred1Id = (pred1 != null) ? pred1.getUserId() : myId;
 
-                    // Gửi cancel để dừng các peer khác
-                    broadcastCancel(new BroadcastCancel(msg.id, "RESPONDED", localUser.getUserId()));
+                boolean iAmPred1 = isBetween(pred1Id, myId, newPeerId);
+                boolean iAmSucc1 = isBetween(myId, succ1Id, newPeerId);
+                boolean iAmPred2 = pred1 != null && isBetween(
+                        (pred2 != null) ? pred2.getUserId() : pred1Id, pred1Id, newPeerId
+                );
+                boolean iAmSucc2 = succ1 != null && isBetween(
+                        succ1Id, (succ2 != null) ? succ2.getUserId() : succ1Id, newPeerId
+                );
+
+                // 🟢 DÙNG msg.id TRONG scheduleResponse
+                if (iAmPred1) {
+                    scheduleResponse(msg.id, 50 + rand(20), () -> {
+                        try {
+                            IGoGameService stub = getRmiStub(newConfig);
+                            stub.notifyAsPredecessor1(localUser.getUserConfig(), pred1);
+                            broadcastCancel(new BroadcastCancel(msg.id, "RESPONDED", myId));
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+
+                if (iAmSucc1) {
+                    scheduleResponse(msg.id, 50 + rand(20), () -> {
+                        try {
+                            IGoGameService stub = getRmiStub(newConfig);
+                            stub.notifyAsSuccessor1(localUser.getUserConfig(), succ1);
+                            broadcastCancel(new BroadcastCancel(msg.id, "RESPONDED", myId));
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+
+                if (iAmPred2 && !iAmPred1) {
+                    scheduleResponse(msg.id, 150 + rand(30), () -> {
+                        try {
+                            IGoGameService stub = getRmiStub(newConfig);
+                            stub.notifyAsPredecessor2(localUser.getUserConfig());
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
+                }
+
+                if (iAmSucc2 && !iAmSucc1) {
+                    scheduleResponse(msg.id, 150 + rand(30), () -> {
+                        try {
+                            IGoGameService stub = getRmiStub(newConfig);
+                            stub.notifyAsSuccessor2(localUser.getUserConfig());
+                        } catch (Exception e) { e.printStackTrace(); }
+                    });
                 }
                 break;
             }
-
             case "LOOKUP_PEER": {
                 String targetId = (String) msg.payload.get("targetPeerId");
                 if (localUser.getUserId().equals(targetId)) {
@@ -198,7 +244,6 @@ public class BroadcastManager {
             task.cancel(true);
             System.out.println("[Bcast] Hủy task phản hồi: " + cancel.broadcastId);
         }
-        // Forward cancel
         broadcastCancel(cancel);
     }
 
@@ -216,7 +261,34 @@ public class BroadcastManager {
         ObjectInputStream ois = new ObjectInputStream(bis);
         return ois.readObject();
     }
+    private boolean isBetween(String a, String b, String x) {
+        // So sánh lexic trên vòng: a < x <= b
+        if (a.compareTo(b) < 0) {
+            // Không wrap: a < b
+            return a.compareTo(x) < 0 && x.compareTo(b) <= 0;
+        } else {
+            // Wrap: a > b → vòng từ a → ... → Z → A → ... → b
+            return a.compareTo(x) < 0 || x.compareTo(b) <= 0;
+        }
+    }
 
+    private void scheduleResponse(String broadcastId, long delayMs, Runnable task) {
+        ScheduledFuture<?> future = scheduler.schedule(() -> {
+            if (!cancelledBroadcasts.contains(broadcastId)) {
+                task.run();
+            } else {
+                System.out.println("[Bcast] Bỏ qua phản hồi đã bị cancel: " + broadcastId);
+            }
+        }, delayMs, TimeUnit.MILLISECONDS);
+    }
+    private IGoGameService getRmiStub(UserConfig config) throws Exception {
+        String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
+        return (IGoGameService) java.rmi.Naming.lookup(url);
+    }
+
+    private long rand(long bound) {
+        return (long) (Math.random() * bound);
+    }
     public void close() {
         socket.close();
         scheduler.shutdown();

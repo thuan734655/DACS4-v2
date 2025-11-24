@@ -23,7 +23,19 @@ public interface IGoGameService extends Remote {
     // Reconnect
     void onReconnectRequest(String peerId, String gameId) throws RemoteException;
     void onReconnectOffer(Game gameSnapshot) throws RemoteException;
+    // Gửi cho peer mới: "Tôi là successor gần nhất của bạn"
+    void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException;
+
+    // Gửi cho peer mới: "Tôi là successor thứ 2 của bạn"
+    void notifyAsSuccessor2(UserConfig me) throws RemoteException;
+
+    // Gửi cho peer mới: "Tôi là predecessor gần nhất của bạn"
+    void notifyAsPredecessor1(UserConfig me, UserConfig prevPredecessor) throws RemoteException;
+
+    // Gửi cho peer mới: "Tôi là predecessor thứ 2 của bạn"
+    void notifyAsPredecessor2(UserConfig me) throws RemoteException;
 
     // Lấy lịch sử (giới hạn 20 game)
     List<Game> getGameHistory(int limit) throws RemoteException;
+
 }
