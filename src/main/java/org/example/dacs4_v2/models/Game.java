@@ -88,6 +88,14 @@ public class Game implements Serializable {
         this.lastMoveTimestamp = System.currentTimeMillis();
     }
 
+    public String getNameGame() {
+        return nameGame;
+    }
+
+    public void setNameGame(String nameGame) {
+        this.nameGame = nameGame;
+    }
+
     public String getCurrentTurn() { return currentTurn; }
     public void setCurrentTurn(String currentTurn) { this.currentTurn = currentTurn; }
 

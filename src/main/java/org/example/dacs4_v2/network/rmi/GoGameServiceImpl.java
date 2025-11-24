@@ -1,5 +1,6 @@
 package org.example.dacs4_v2.network.rmi;
 
+import java.rmi.Naming;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
@@ -7,6 +8,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
+import javafx.scene.control.ButtonType;
+import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
 
@@ -27,6 +33,28 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         System.out.println("[RMI] Nhận lời mời vào game: " + game.getGameId());
         // Lưu game, update UI...
         activeGames.put(game.getGameId(), game);
+
+        Platform.runLater(() -> {
+            String title = "Game invite";
+            String msg = "Bạn được mời vào game " + game.getGameId();
+            if (game.getNameGame() != null && !game.getNameGame().isEmpty()) {
+                msg += " (" + game.getNameGame() + ")";
+            }
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+            alert.setTitle(title);
+            alert.setHeaderText(null);
+            alert.showAndWait().ifPresent(btn -> {
+                if (btn == ButtonType.OK) {
+                    System.out.println("[UI] User accepted invite for game " + game.getGameId());
+                    GameContext.getInstance().setCurrentGame(game);
+                    HelloApplication.navigateTo("game.fxml");
+                } else {
+                    System.out.println("[UI] User declined invite for game " + game.getGameId());
+                    activeGames.remove(game.getGameId());
+                }
+            });
+        });
     }
 
     @Override
@@ -42,10 +70,15 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
     @Override
     public void submitMove(Moves move, long seqNo) throws RemoteException {
-        Game game = activeGames.get(move.getOrder() > 0 ? /* suy ra gameId */ "123456" : "123456");
+        Game game = null;
+        if (move != null && move.getGameId() != null) {
+            game = activeGames.get(move.getGameId());
+        }
         if (game != null) {
             game.addMove(move);
             System.out.println("[RMI] Nhận nước đi: " + move);
+            GameContext.getInstance().setCurrentGame(game);
+            GameContext.getInstance().notifyMoveReceived(move);
             // Gửi ACK
             // clientService.moveAck(seqNo);
         }
@@ -86,6 +119,35 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    @Override
+    public UserConfig findPeerById(String targetPeerId, int maxHops) throws RemoteException {
+        if (maxHops <= 0 || targetPeerId == null || targetPeerId.isEmpty()) {
+            return null;
+        }
+
+        String myId = localUser.getUserId();
+        if (myId != null && myId.equals(targetPeerId)) {
+            return localUser.getUserConfig();
+        }
+
+        UserConfig nextHop = selectNextHopFromNeighbors(targetPeerId);
+        if (nextHop == null) {
+            return null;
+        }
+
+        if (nextHop.getUserId() != null && nextHop.getUserId().equals(myId)) {
+            return null;
+        }
+
+        try {
+            IGoGameService stub = getStub(nextHop);
+            return stub.findPeerById(targetPeerId, maxHops - 1);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     // rmi/GoGameServiceImpl.java
     @Override
     public void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException {
@@ -117,5 +179,31 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     public void notifyAsPredecessor2(UserConfig me) throws RemoteException {
         System.out.println("[DHT] ✅ Tôi là PREDECESSOR_2 của peer mới: " + me.getUserId());
         localUser.setNeighbor(NeighborType.PREDECESSOR_2, me);
+    }
+
+    private IGoGameService getStub(UserConfig config) throws Exception {
+        String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
+        return (IGoGameService) Naming.lookup(url);
+    }
+
+    private UserConfig selectNextHopFromNeighbors(String targetPeerId) {
+        if (targetPeerId == null || targetPeerId.isEmpty()) return null;
+
+        String myId = localUser.getUserId();
+        if (myId == null) return null;
+
+        int bestDistance = Math.abs(myId.compareTo(targetPeerId));
+        UserConfig best = null;
+
+        for (NeighborType type : NeighborType.values()) {
+            UserConfig c = localUser.getNeighbor(type);
+            if (c == null || c.getUserId() == null) continue;
+            int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
+            if (dist < bestDistance) {
+                bestDistance = dist;
+                best = c;
+            }
+        }
+        return best;
     }
 }

@@ -41,4 +41,7 @@ public interface IGoGameService extends Remote {
 
     // Thông báo khi discover người chơi online qua broadcast
     void onOnlinePeerDiscovered(User user) throws RemoteException;
+
+    // Lookup peer theo userId qua DHT (chuỗi RMI, không broadcast)
+    UserConfig findPeerById(String targetPeerId, int maxHops) throws RemoteException;
 }

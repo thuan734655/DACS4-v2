@@ -89,6 +89,10 @@ public class P2PNode {
         return broadcastManager;
     }
 
+    public IGoGameService getLocalService() {
+        return service;
+    }
+
     public void addOnlinePeer(User user) {
         if (user == null) return;
         synchronized (onlinePeers) {

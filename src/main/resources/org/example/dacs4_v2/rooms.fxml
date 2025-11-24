@@ -39,7 +39,7 @@
                         <Label text="Available Rooms" style="-fx-font-size: 22; -fx-font-weight: bold;" HBox.hgrow="ALWAYS"/>
                         <Label text="Online" style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 6 12; -fx-background-radius: 999;"/>
                         <Button text="Play AI" style="-fx-background-color: #ffe3d1; -fx-text-fill: #d96b2b; -fx-background-radius: 999;"/>
-                        <Button text="Create Room" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;"/>
+                        <Button text="Create Room" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;" onAction="#onCreateRoom"/>
                     </children>
                 </HBox>
 

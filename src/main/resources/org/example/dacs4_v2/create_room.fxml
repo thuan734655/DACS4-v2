@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.collections.FXCollections?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.dacs4_v2.viewModels.CreateRoomController"
+            prefWidth="420" prefHeight="320" style="-fx-background-color: #f9fafb;">
+    <center>
+        <VBox spacing="12" alignment="CENTER_LEFT" style="-fx-padding: 24;">
+            <children>
+                <Label text="Create Game Room" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+
+                <Label text="Game name"/>
+                <TextField fx:id="txtGameName" promptText="Enter room name..." maxWidth="Infinity"/>
+
+                <Label text="Board size"/>
+                <ComboBox fx:id="cbBoardSize" maxWidth="Infinity">
+                    <items>
+                        <FXCollections fx:factory="observableArrayList">
+                            <String fx:value="9"/>
+                            <String fx:value="13"/>
+                            <String fx:value="19"/>
+                        </FXCollections>
+                    </items>
+                </ComboBox>
+
+                <Label text="Komi"/>
+                <ComboBox fx:id="cbKomi" maxWidth="Infinity">
+                    <items>
+                        <FXCollections fx:factory="observableArrayList">
+                            <String fx:value="0"/>
+                            <String fx:value="6.5"/>
+                        </FXCollections>
+                    </items>
+                </ComboBox>
+
+                <Label text="Opponent peerId"/>
+                <TextField fx:id="txtOpponentPeerId" promptText="Target peerId" maxWidth="Infinity"/>
+
+                <Label fx:id="lblStatus" textFill="#ef4444" style="-fx-font-size: 11;"/>
+
+                <HBox spacing="8" alignment="CENTER_RIGHT">
+                    <children>
+                        <Button text="Cancel" onAction="#onCancel"/>
+                        <Button text="Create" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;" onAction="#onCreate"/>
+                    </children>
+                </HBox>
+            </children>
+        </VBox>
+    </center>
+</BorderPane>

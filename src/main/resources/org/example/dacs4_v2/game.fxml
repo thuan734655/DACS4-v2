@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="org.example.dacs4_v2.viewModels.GameController"
+            prefWidth="800" prefHeight="600" style="-fx-background-color: #f6f8fb;">
+    <top>
+        <HBox spacing="16" alignment="CENTER_LEFT" style="-fx-padding: 16;">
+            <children>
+                <Label fx:id="lblGameInfo" style="-fx-font-size: 16; -fx-font-weight: bold;"/>
+                <Label fx:id="lblPlayerColor" style="-fx-text-fill: #374151;"/>
+                <Label fx:id="lblKomi" style="-fx-text-fill: #6b7280;"/>
+            </children>
+        </HBox>
+    </top>
+    <center>
+        <StackPane style="-fx-padding: 16;">
+            <GridPane fx:id="boardGrid" hgap="2" vgap="2" style="-fx-background-color: #c4a26a; -fx-padding: 12;"/>
+        </StackPane>
+    </center>
+</BorderPane>

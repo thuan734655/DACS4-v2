@@ -1,16 +1,18 @@
 package org.example.dacs4_v2.models;
 
 public class Moves {
- private int order;
- private String player;
- private int x;
- private int y;
+    private int order;
+    private String player;
+    private int x;
+    private int y;
+    private String gameId;
 
-    public Moves(int order, String player, int x, int y) {
+    public Moves(int order, String player, int x, int y, String gameId) {
         this.order = order;
         this.player = player;
         this.x = x;
         this.y = y;
+        this.gameId = gameId;
     }
 
     public int getOrder() {
@@ -43,5 +45,13 @@ public class Moves {
 
     public void setY(int y) {
         this.y = y;
+    }
+
+    public String getGameId() {
+        return gameId;
+    }
+
+    public void setGameId(String gameId) {
+        this.gameId = gameId;
     }
 }
