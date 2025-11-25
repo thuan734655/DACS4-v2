@@ -7,11 +7,14 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
+import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.models.UserConfig;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.security.SecureRandom;
@@ -97,11 +100,15 @@ public class CreateRoomController {
 
             Game game = new Game(gameId, hostPeerId, userId, rivalId, boardSize, komiInt, name);
 
-            // Lookup đối thủ qua DHT
+            // Đăng ký game vào service local để host cũng có trong activeGames
             IGoGameService localService = node.getLocalService();
             if (localService == null) {
                 setStatus("Service not ready");
                 return;
+            }
+
+            if (localService instanceof GoGameServiceImpl) {
+                ((GoGameServiceImpl) localService).registerLocalGame(game);
             }
 
             UserConfig targetConfig = localService.findPeerById(opponentPeerId, 12);
@@ -119,6 +126,10 @@ public class CreateRoomController {
             String url = "rmi://" + targetConfig.getHost() + ":" + targetConfig.getPort() + "/" + targetConfig.getServiceName();
             IGoGameService remote = (IGoGameService) java.rmi.Naming.lookup(url);
             remote.inviteToGame(game);
+
+            // Mở luôn bàn cờ cho host với game vừa tạo
+            GameContext.getInstance().setCurrentGame(game);
+            HelloApplication.navigateTo("game.fxml");
 
             closeWindow();
         } catch (Exception e) {

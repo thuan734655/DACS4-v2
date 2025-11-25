@@ -28,6 +28,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         this.localUser = user;
     }
 
+    // Đăng ký game do chính peer local tạo ra (host) để cả hai bên cùng dùng activeGames
+    public void registerLocalGame(Game game) {
+        if (game == null || game.getGameId() == null) return;
+        activeGames.put(game.getGameId(), game);
+    }
+
     @Override
     public void inviteToGame(Game game) throws RemoteException {
         System.out.println("[RMI] Nhận lời mời vào game: " + game.getGameId());

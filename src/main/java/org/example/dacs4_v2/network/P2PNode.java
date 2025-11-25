@@ -60,7 +60,6 @@ public class P2PNode {
 
         // Tìm seed trong LAN và JOIN_DHT
         List<UserConfig> seeds = LanDiscoveryManager.discoverPeers(1500);
-        System.out.println(seeds +"seeds");
         if (!seeds.isEmpty()) {
             UserConfig seed = seeds.get(0);
             localUser.setNeighbor(NeighborType.SUCCESSOR_1, seed);
