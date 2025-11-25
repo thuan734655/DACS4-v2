@@ -96,7 +96,7 @@ public class GameController {
                     cell.setMinSize(cellSize, cellSize);
                     cell.setPrefSize(cellSize, cellSize);
                     cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-                    cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
+                    cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-font-size: 24px;");
                     final int fx = x;
                     final int fy = y;
                     cell.setOnAction(e -> onCellClicked(fx, fy, cell));
