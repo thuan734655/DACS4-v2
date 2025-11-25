@@ -96,7 +96,7 @@ public class GameController {
                     cell.setMinSize(cellSize, cellSize);
                     cell.setPrefSize(cellSize, cellSize);
                     cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-                    cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-font-size: 24px;");
+                    cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-font-size: 32px;");
                     final int fx = x;
                     final int fy = y;
                     cell.setOnAction(e -> onCellClicked(fx, fy, cell));
@@ -352,11 +352,19 @@ public class GameController {
                 Button btn = (Button) node;
                 int v = board[cx][cy];
                 if (v == 1) {
-                    btn.setText("●");
-                } else if (v == 2) {
-                    btn.setText("○");
-                } else {
+                    // Quân đen
                     btn.setText("");
+                    btn.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 60%, #111827, #000000); " +
+                            "-fx-background-radius: 999; -fx-border-color: transparent; -fx-padding: 0;");
+                } else if (v == 2) {
+                    // Quân trắng
+                    btn.setText("");
+                    btn.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 60%, #ffffff, #e5e7eb); " +
+                            "-fx-background-radius: 999; -fx-border-color: transparent; -fx-padding: 0;");
+                } else {
+                    // Ô trống
+                    btn.setText("");
+                    btn.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
                 }
             }
         }
@@ -495,7 +503,7 @@ public class GameController {
                 int cy = row == null ? 0 : row;
                 if (cx == gx && cy == gy && node instanceof Button) {
                     Button btn = (Button) node;
-                    String css = String.format("-fx-background-color: rgba(%d,%d,%d,%.2f); -fx-border-color: transparent;",
+                    String css = String.format("-fx-background-color: rgba(%d,%d,%d,%.2f); -fx-border-color: transparent; -fx-font-size: 32px;",
                             (int) (color.getRed() * 255),
                             (int) (color.getGreen() * 255),
                             (int) (color.getBlue() * 255),
