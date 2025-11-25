@@ -352,15 +352,25 @@ public class GameController {
                 Button btn = (Button) node;
                 int v = board[cx][cy];
                 if (v == 1) {
-                    // Quân đen
+                    // Quân đen – nhỏ hơn, chừa viền để không đè đường lưới
                     btn.setText("");
-                    btn.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 60%, #111827, #000000); " +
-                            "-fx-background-radius: 999; -fx-border-color: transparent; -fx-padding: 0;");
+                    btn.setStyle(
+                            "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, #111827, #000000);" +
+                            "-fx-background-radius: 999;" +
+                            "-fx-background-insets: 4;" +
+                            "-fx-padding: 4;" +
+                            "-fx-border-color: transparent;"
+                    );
                 } else if (v == 2) {
-                    // Quân trắng
+                    // Quân trắng – nhỏ hơn, chừa viền
                     btn.setText("");
-                    btn.setStyle("-fx-background-color: radial-gradient(center 50% 50%, radius 60%, #ffffff, #e5e7eb); " +
-                            "-fx-background-radius: 999; -fx-border-color: transparent; -fx-padding: 0;");
+                    btn.setStyle(
+                            "-fx-background-color: radial-gradient(center 50% 50%, radius 50%, #ffffff, #e5e7eb);" +
+                            "-fx-background-radius: 999;" +
+                            "-fx-background-insets: 4;" +
+                            "-fx-padding: 4;" +
+                            "-fx-border-color: transparent;"
+                    );
                 } else {
                     // Ô trống
                     btn.setText("");
