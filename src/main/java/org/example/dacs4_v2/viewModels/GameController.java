@@ -87,7 +87,8 @@ public class GameController {
             double cellSize = 28;
             if (boardCanvas != null) {
                 double size = Math.min(boardCanvas.getWidth(), boardCanvas.getHeight());
-                cellSize = size / boardSize;
+                // Dùng cùng step với lưới trên Canvas: size chia cho (boardSize - 1)
+                cellSize = size / (boardSize - 1);
             }
 
             for (int y = 0; y < boardSize; y++) {
@@ -535,10 +536,10 @@ public class GameController {
         gc.setFill(Color.web("#d7a86e"));
         gc.fillRect(0, 0, w, h);
 
-        double margin = 20;
-        double size = Math.min(w, h) - 2 * margin;
-        double startX = (w - size) / 2;
-        double startY = (h - size) / 2;
+        // Không dùng margin, vẽ lưới phủ toàn Canvas để trùng với GridPane overlay
+        double size = Math.min(w, h);
+        double startX = 0;
+        double startY = 0;
         double step = size / (boardSize - 1);
 
         gc.setStroke(Color.web("#986f3c"));
