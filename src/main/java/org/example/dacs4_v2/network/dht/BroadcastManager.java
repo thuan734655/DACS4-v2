@@ -105,21 +105,8 @@ public class BroadcastManager {
             broadcast(msg); // forward đến neighbor
         }
 
-        // Sinh delay ngẫu nhiên: 10–500ms
-        long delayMs = ThreadLocalRandom.current().nextLong(10, 501);
-
-        ScheduledFuture<?> task = scheduler.schedule(() -> {
-            if (cancelledBroadcasts.contains(msg.id)) {
-                System.out.println("[Bcast] Cancelled: " + msg.id);
-                return;
-            }
-
-            // → Xử lý logic theo type
-            handleBroadcastLogic(msg, senderAddr);
-
-        }, delayMs, TimeUnit.MILLISECONDS);
-
-        scheduledTasks.put(msg.id, task);
+        // Xử lý ngay lập tức, không delay, không dùng scheduler
+        handleBroadcastLogic(msg, senderAddr);
     }
 
     private void handleBroadcastLogic(BroadcastMessage msg, InetAddress senderAddr) {
