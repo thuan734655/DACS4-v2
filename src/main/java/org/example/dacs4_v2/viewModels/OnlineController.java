@@ -13,6 +13,8 @@ import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 
+import java.util.List;
+
 public class OnlineController {
 
     @FXML
@@ -51,8 +53,8 @@ public class OnlineController {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                java.util.List<User> players = node.requestOnlinePeers(1500);
-
+                List<User> players = node.requestOnlinePeers(1500);
+                System.out.println(players);
                 Platform.runLater(() -> updatePlayersUI(players));
             } catch (Exception e) {
                 e.printStackTrace();

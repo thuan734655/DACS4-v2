@@ -3,6 +3,8 @@ package org.example.dacs4_v2.models;
 import java.io.Serializable;
 
 public class UserConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private int port;
     private String serviceName;
     private String host;
@@ -31,4 +33,13 @@ public class UserConfig implements Serializable {
         return serviceName;
     }
 
+    @Override
+    public String toString() {
+        return "UserConfig{" +
+                "host='" + host + '\'' +
+                ", port=" + port +
+                ", serviceName='" + serviceName + '\'' +
+                ", userId='" + userId + '\'' +
+                '}';
+    }
 }

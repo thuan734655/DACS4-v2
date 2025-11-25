@@ -45,7 +45,7 @@ public class LoginController {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                node.requestOnlinePeers(1500);
+                node.requestOnlinePeers(200);
             } catch (Exception e) {
                 e.printStackTrace();
             }

@@ -38,7 +38,7 @@ public class P2PNode {
         String name = stored.getName();
         String peerId = stored.getUserId();
         int rank = stored.getRank();
-        int rmiPort = 1099; // TODO: cấu hình nếu cần
+        int rmiPort = 1099;
 
         String hostIp = getLocalIp();
         UserConfig localConfig = new UserConfig(peerId, "GoGameService", rmiPort, hostIp);
@@ -60,6 +60,7 @@ public class P2PNode {
 
         // Tìm seed trong LAN và JOIN_DHT
         List<UserConfig> seeds = LanDiscoveryManager.discoverPeers(1500);
+        System.out.println(seeds +"seeds");
         if (!seeds.isEmpty()) {
             UserConfig seed = seeds.get(0);
             localUser.setNeighbor(NeighborType.SUCCESSOR_1, seed);
@@ -94,6 +95,7 @@ public class P2PNode {
     }
 
     public void addOnlinePeer(User user) {
+        System.out.println(user + "user");
         if (user == null) return;
         synchronized (onlinePeers) {
             boolean exists = onlinePeers.stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
@@ -152,7 +154,7 @@ public class P2PNode {
                 }
             }
         }
-
+        System.out.println(fallback + "mang");
         return fallback;
     }
 }
