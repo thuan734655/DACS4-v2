@@ -9,6 +9,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.canvas.Canvas?>
 
+<?import javafx.scene.control.Button?>
 <BorderPane prefHeight="620" prefWidth="1024" style="-fx-background-color: #f3f4f6;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.dacs4_v2.viewModels.GameController">
 
     <!-- Top bar: game info, komi, color -->
@@ -101,6 +102,15 @@
                                 <Label fx:id="lblPlayerTwoTime" style="-fx-text-fill: #111827;" text="09:45" />
                             </children>
                         </HBox>
+
+                        <!-- Pass / scoring controls -->
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <children>
+                                <Button text="Pass" onAction="#onPassClicked"
+                                        style="-fx-background-color: #111827; -fx-text-fill: white; -fx-background-radius: 999; -fx-padding: 6 16;" />
+                            </children>
+                        </HBox>
+
                   <HBox prefHeight="38.0" prefWidth="188.0">
                      <children>
                         <HBox alignment="CENTER_LEFT" prefHeight="38.0" prefWidth="233.0" spacing="8" style="-fx-background-color: white; -fx-background-radius: 999;                                              -fx-padding: 8 16;                                              -fx-effect: dropshadow(gaussian, rgba(15,23,42,0.08),                                                                     8, 0.2, 0, 2);">

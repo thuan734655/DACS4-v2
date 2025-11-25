@@ -9,6 +9,8 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.Button;
 import javafx.scene.paint.Color;
+import java.util.ArrayList;
+import java.util.List;
 import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.Game;
@@ -166,6 +168,12 @@ public class GameController {
         }
 
         Platform.runLater(this::redrawBoard);
+    }
+
+    // Handler cho nút Pass: tạm thời chỉ dùng để đánh giá sống–chết và tô màu nhóm cần vote
+    @FXML
+    public void onPassClicked() {
+        evaluateAndHighlightBoardForScoring();
     }
 
     private boolean applyMoveWithRules(int x, int y, int color, boolean enforceKoAndSuicide) {
@@ -349,6 +357,150 @@ public class GameController {
                     btn.setText("○");
                 } else {
                     btn.setText("");
+                }
+            }
+        }
+    }
+
+    // ======== ĐÁNH GIÁ SỐNG–CHẾT (dùng sau khi kết thúc ván) ========
+
+    /**
+     * Đánh giá sơ bộ sống–chết cho toàn bộ bàn, tô màu những nhóm "chưa rõ"
+     * (không có >=2 mắt thật và không đang ở trạng thái chỉ còn 1 khí).
+     * Có thể gọi hàm này sau khi hai bên pass/resign để người chơi vote.
+     */
+    private void evaluateAndHighlightBoardForScoring() {
+        if (board == null || boardGrid == null || boardSize <= 0) return;
+
+        boolean[][] visited = new boolean[boardSize][boardSize];
+
+        for (int x = 0; x < boardSize; x++) {
+            for (int y = 0; y < boardSize; y++) {
+                int color = board[x][y];
+                if (color == 0 || visited[x][y]) continue;
+
+                List<int[]> group = collectGroup(board, x, y, color, visited);
+                int liberties = countLiberties(board, x, y, color);
+                int trueEyes = countTrueEyes(board, group, color);
+
+                boolean alive = trueEyes >= 2;
+                boolean clearlyDead = !alive && liberties == 1;
+
+                if (!alive && !clearlyDead) {
+                    // Nhóm không chắc chắn → tô màu để người chơi vote
+                    highlightGroup(group, Color.web("#facc15", 0.35)); // vàng nhạt
+                }
+            }
+        }
+    }
+
+    private List<int[]> collectGroup(int[][] state, int sx, int sy, int color, boolean[][] visited) {
+        List<int[]> group = new ArrayList<>();
+        int[][] stack = new int[boardSize * boardSize][2];
+        int top = 0;
+        stack[top][0] = sx;
+        stack[top][1] = sy;
+        visited[sx][sy] = true;
+
+        int[][] dirs = new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        while (top >= 0) {
+            int cx = stack[top][0];
+            int cy = stack[top][1];
+            top--;
+            group.add(new int[]{cx, cy});
+
+            for (int[] d : dirs) {
+                int nx = cx + d[0];
+                int ny = cy + d[1];
+                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) {
+                    continue;
+                }
+                if (!visited[nx][ny] && state[nx][ny] == color) {
+                    visited[nx][ny] = true;
+                    top++;
+                    stack[top][0] = nx;
+                    stack[top][1] = ny;
+                }
+            }
+        }
+        return group;
+    }
+
+    private int countTrueEyes(int[][] state, List<int[]> group, int color) {
+        boolean[][] eyeVisited = new boolean[boardSize][boardSize];
+        int trueEyes = 0;
+        int[][] dirs = new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+
+        for (int[] cell : group) {
+            int cx = cell[0];
+            int cy = cell[1];
+            for (int[] d : dirs) {
+                int ex = cx + d[0];
+                int ey = cy + d[1];
+                if (ex < 0 || ex >= boardSize || ey < 0 || ey >= boardSize) continue;
+                if (state[ex][ey] != 0 || eyeVisited[ex][ey]) continue;
+                eyeVisited[ex][ey] = true;
+                if (isEyeOfGroup(state, ex, ey, color) && isTrueEye(state, ex, ey, color)) {
+                    trueEyes++;
+                }
+            }
+        }
+        return trueEyes;
+    }
+
+    // Một ô trống là "mắt" của nhóm nếu 4 hướng đều là quân cùng màu và không ra ngoài biên
+    private boolean isEyeOfGroup(int[][] state, int ex, int ey, int color) {
+        int[][] dirs = new int[][]{{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
+        for (int[] d : dirs) {
+            int nx = ex + d[0];
+            int ny = ey + d[1];
+            if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize) {
+                return false; // mắt phải nằm trong vùng kín
+            }
+            if (state[nx][ny] != color) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Phân biệt mắt thật / mắt giả bằng các điểm chéo xung quanh ô trống
+    private boolean isTrueEye(int[][] state, int ex, int ey, int color) {
+        int opp = (color == 1) ? 2 : 1;
+        int enemyDiag = 0;
+        int borderDiag = 0;
+        int[][] diags = new int[][]{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}};
+        for (int[] d : diags) {
+            int dx = ex + d[0];
+            int dy = ey + d[1];
+            if (dx < 0 || dx >= boardSize || dy < 0 || dy >= boardSize) {
+                borderDiag++;
+            } else if (state[dx][dy] == opp) {
+                enemyDiag++;
+            }
+        }
+        // Heuristic: nếu có >=2 góc là biên hoặc quân đối phương → mắt giả
+        return (enemyDiag + borderDiag) < 2;
+    }
+
+    private void highlightGroup(List<int[]> group, Color color) {
+        if (boardGrid == null || group == null) return;
+        for (int[] cell : group) {
+            int gx = cell[0];
+            int gy = cell[1];
+            for (Node node : boardGrid.getChildren()) {
+                Integer col = GridPane.getColumnIndex(node);
+                Integer row = GridPane.getRowIndex(node);
+                int cx = col == null ? 0 : col;
+                int cy = row == null ? 0 : row;
+                if (cx == gx && cy == gy && node instanceof Button) {
+                    Button btn = (Button) node;
+                    String css = String.format("-fx-background-color: rgba(%d,%d,%d,%.2f); -fx-border-color: transparent;",
+                            (int) (color.getRed() * 255),
+                            (int) (color.getGreen() * 255),
+                            (int) (color.getBlue() * 255),
+                            color.getOpacity());
+                    btn.setStyle(css);
                 }
             }
         }
