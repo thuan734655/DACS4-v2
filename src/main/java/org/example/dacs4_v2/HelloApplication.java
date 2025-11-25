@@ -19,9 +19,9 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws Exception {
         primaryStage = stage;
-        // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
+        // Nếu đã có user.json trong thư mục data thì bỏ qua màn login và vào thẳng màn room/online
         File userFile = new File("data/user.json");
-        String startFxml = userFile.exists() ? "dashboard.fxml" : "login.fxml";
+        String startFxml = userFile.exists() ? "online.fxml" : "login.fxml";
 
         Parent root = loadFXML(startFxml);
         Scene scene = new Scene(root);

@@ -83,6 +83,13 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         if (game != null) {
             game.addMove(move);
             System.out.println("[RMI] Nhận nước đi: " + move);
+            // Cập nhật lượt chơi: nếu BLACK vừa đi thì tới WHITE và ngược lại
+            String playerColor = move.getPlayer();
+            if ("BLACK".equals(playerColor)) {
+                game.setCurrentTurn("WHITE");
+            } else if ("WHITE".equals(playerColor)) {
+                game.setCurrentTurn("BLACK");
+            }
             GameContext.getInstance().setCurrentGame(game);
             GameContext.getInstance().notifyMoveReceived(move);
             // Gửi ACK

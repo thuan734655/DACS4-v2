@@ -3,9 +3,12 @@ package org.example.dacs4_v2.viewModels;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.Node;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.Button;
+import javafx.scene.paint.Color;
 import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.Game;
@@ -27,6 +30,9 @@ public class GameController {
 
     @FXML
     private GridPane boardGrid;
+
+    @FXML
+    private Canvas boardCanvas;
 
     private Game game;
     private String localPlayerId;
@@ -70,13 +76,25 @@ public class GameController {
             lblKomi.setText("Komi: " + komi);
         }
 
+        if (boardCanvas != null) {
+            drawBoardGrid();
+        }
+
         if (boardGrid != null) {
             boardGrid.getChildren().clear();
+            double cellSize = 28;
+            if (boardCanvas != null) {
+                double size = Math.min(boardCanvas.getWidth(), boardCanvas.getHeight());
+                cellSize = size / boardSize;
+            }
+
             for (int y = 0; y < boardSize; y++) {
                 for (int x = 0; x < boardSize; x++) {
                     Button cell = new Button("");
-                    cell.setMinSize(28, 28);
-                    cell.setPrefSize(28, 28);
+                    cell.setMinSize(cellSize, cellSize);
+                    cell.setPrefSize(cellSize, cellSize);
+                    cell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+                    cell.setStyle("-fx-background-color: transparent; -fx-border-color: transparent;");
                     final int fx = x;
                     final int fy = y;
                     cell.setOnAction(e -> onCellClicked(fx, fy, cell));
@@ -96,6 +114,8 @@ public class GameController {
 
     private void onCellClicked(int x, int y, Button cell) {
         if (game == null) return;
+        if (!game.isActive()) return; // chỉ chơi khi ván đang active
+        if (game.getUserId() == null || game.getRivalId() == null || game.getRivalId().isEmpty()) return; // cần đủ 2 người chơi
         if (board != null && board[x][y] != 0) return;
 
         String currentTurnId = game.getCurrentPlayerId();
@@ -330,6 +350,57 @@ public class GameController {
                 } else {
                     btn.setText("");
                 }
+            }
+        }
+    }
+
+    private void drawBoardGrid() {
+        if (boardCanvas == null || boardSize <= 0) {
+            return;
+        }
+        GraphicsContext gc = boardCanvas.getGraphicsContext2D();
+        double w = boardCanvas.getWidth();
+        double h = boardCanvas.getHeight();
+
+        gc.setFill(Color.web("#d7a86e"));
+        gc.fillRect(0, 0, w, h);
+
+        double margin = 20;
+        double size = Math.min(w, h) - 2 * margin;
+        double startX = (w - size) / 2;
+        double startY = (h - size) / 2;
+        double step = size / (boardSize - 1);
+
+        gc.setStroke(Color.web("#986f3c"));
+        gc.setLineWidth(1.0);
+
+        for (int i = 0; i < boardSize; i++) {
+            double x = startX + i * step;
+            gc.strokeLine(x, startY, x, startY + size);
+        }
+        for (int j = 0; j < boardSize; j++) {
+            double y = startY + j * step;
+            gc.strokeLine(startX, y, startX + size, y);
+        }
+
+        int[] hoshiCoords;
+        if (boardSize == 19) {
+            hoshiCoords = new int[]{3, 9, 15};
+        } else if (boardSize == 13) {
+            hoshiCoords = new int[]{3, 6, 9};
+        } else if (boardSize == 9) {
+            hoshiCoords = new int[]{2, 4, 6};
+        } else {
+            return;
+        }
+
+        gc.setFill(Color.web("#222222"));
+        double r = 3;
+        for (int ix : hoshiCoords) {
+            for (int iy : hoshiCoords) {
+                double cx = startX + ix * step;
+                double cy = startY + iy * step;
+                gc.fillOval(cx - r, cy - r, r * 2, r * 2);
             }
         }
     }

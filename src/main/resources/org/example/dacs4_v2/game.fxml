@@ -7,6 +7,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.canvas.Canvas?>
 
 <BorderPane prefHeight="620" prefWidth="1024" style="-fx-background-color: #f3f4f6;" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="org.example.dacs4_v2.viewModels.GameController">
 
@@ -33,10 +34,16 @@
                         <!-- Status chips row -->
                         <HBox spacing="12" />
 
-                        <!-- Board with wooden background -->
+                        <!-- Board with wooden background + Canvas grid + clickable overlay -->
                         <StackPane style="-fx-padding: 12;">
-                            <StackPane maxHeight="640" maxWidth="640" style="-fx-background-color: linear-gradient(to bottom,                                                                                      #c58a4b, #b07a3b);                                               -fx-background-radius: 24; -fx-padding: 18;">
-                                <GridPane fx:id="boardGrid" hgap="1" style="-fx-background-color: #d7a86e;                                                  -fx-padding: 12; -fx-background-radius: 16;" vgap="1" />
+                            <StackPane maxHeight="640" maxWidth="640"
+                                       style="-fx-background-color: linear-gradient(to bottom, #c58a4b, #b07a3b); -fx-background-radius: 24; -fx-padding: 18;">
+                                <StackPane style="-fx-background-color: #d7a86e; -fx-padding: 12; -fx-background-radius: 16;">
+                                    <!-- Canvas vẽ lưới + hoshi -->
+                                    <Canvas fx:id="boardCanvas" width="580" height="580" />
+                                    <!-- GridPane trong suốt để chứa các Button ô cờ -->
+                                    <GridPane fx:id="boardGrid" hgap="0" vgap="0" />
+                                </StackPane>
                             </StackPane>
                         </StackPane>
 
