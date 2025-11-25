@@ -48,7 +48,7 @@ public class LanDiscoveryManager {
             byte[] data = DISCOVERY_REQUEST.getBytes();
             DatagramPacket packet = new DatagramPacket(
                     data, data.length,
-                    InetAddress.getByName("192.168.110.255"),
+                    InetAddress.getByName("172.20.10.15"),
                     DISCOVERY_PORT
             );
             socket.send(packet);
