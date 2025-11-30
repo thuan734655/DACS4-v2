@@ -70,6 +70,7 @@ public class P2PNode {
             joinMsg.payload.put("newPeerId", peerId);
             joinMsg.payload.put("newPeerConfig", localConfig);
             broadcastManager.broadcast(joinMsg);
+
         }
 
         started = true;
@@ -127,7 +128,7 @@ public class P2PNode {
     }
 
     // Lấy IPv4 của card mạng local, ưu tiên Wi-Fi/wlan, nếu không có thì lấy bất kỳ non-loopback
-    private static String getLocalIp() throws SocketException {
+    public static String getLocalIp() throws SocketException {
         String fallback = "127.0.0.1";
 
         // Ưu tiên interface Wi-Fi

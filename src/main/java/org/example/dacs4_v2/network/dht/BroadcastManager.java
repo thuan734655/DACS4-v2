@@ -124,10 +124,8 @@ public class BroadcastManager {
 
     private void handleBroadcastLogic(BroadcastMessage msg, InetAddress senderAddr) {
         switch (msg.type) {
-            case "HELLO":{
-                System.out.println(msg.originatorPeerId + "ok");
-            }
             case "JOIN_DHT": {
+                System.out.println(msg.originatorPeerId + "ok");
                 String newPeerId = (String) msg.payload.get("newPeerId");
                 UserConfig newConfig = (UserConfig) msg.payload.get("newPeerConfig");
 

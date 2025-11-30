@@ -1,6 +1,7 @@
 package org.example.dacs4_v2.network.discovery;
 
 import org.example.dacs4_v2.models.UserConfig;
+import org.example.dacs4_v2.network.P2PNode;
 
 import java.net.*;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ public class LanDiscoveryManager {
             byte[] data = DISCOVERY_REQUEST.getBytes();
             DatagramPacket packet = new DatagramPacket(
                     data, data.length,
-                    InetAddress.getByName("172.20.10.15"),
+                    InetAddress.getByName(P2PNode.getLocalIp()),
                     DISCOVERY_PORT
             );
             socket.send(packet);
