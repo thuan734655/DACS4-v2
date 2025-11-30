@@ -40,7 +40,8 @@ public class P2PNode {
         int rank = stored.getRank();
         int rmiPort = 1099;
 
-        String hostIp = "172.20.10.3";
+        String hostIp =getLocalIp();
+        System.out.println(hostIp);
         UserConfig localConfig = new UserConfig(peerId, "GoGameService", rmiPort, hostIp);
 
         this.localUser = new User(peerId, name, localConfig);

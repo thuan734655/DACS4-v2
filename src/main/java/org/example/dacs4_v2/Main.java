@@ -52,9 +52,16 @@ public class Main {
             localUser.setNeighbor(NeighborType.SUCCESSOR_1, seed);
 
             BroadcastMessage joinMsg = new BroadcastMessage("JOIN_DHT", peerId);
+            BroadcastMessage hello = new BroadcastMessage("HELLO", peerId);
+
             joinMsg.payload.put("newPeerId", peerId);
             joinMsg.payload.put("newPeerConfig", localConfig);
             bcast.broadcast(joinMsg);
+
+
+            hello.payload.put("newPeerId", peerId);
+            hello.payload.put("newPeerConfig", localConfig);
+            bcast.broadcast(hello);
         }
 
         // CLI đơn giản
