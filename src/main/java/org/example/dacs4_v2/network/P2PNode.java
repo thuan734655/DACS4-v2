@@ -115,6 +115,7 @@ public class P2PNode {
 
         BroadcastMessage msg = new BroadcastMessage("DISCOVER_ONLINE", localUser.getUserId());
         msg.payload.put("originConfig", localUser.getUserConfig());
+        System.out.println("bat dau....");
         broadcastManager.broadcast(msg);
 
         long deadline = System.currentTimeMillis() + timeoutMs;

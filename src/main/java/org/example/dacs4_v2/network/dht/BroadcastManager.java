@@ -42,6 +42,8 @@ public class BroadcastManager {
                     int senderPort = packet.getPort();
 
                     if(senderAddr.getHostAddress().equals(localUser.getUserConfig().getHost())) {
+                        System.out.println("trung");
+
                        continue;
                     }
                     if (obj instanceof BroadcastMessage) {
@@ -88,6 +90,7 @@ public class BroadcastManager {
             byte[] data = serialize(msg);
             DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getLocalIp()),BROADCAST_PORT);
             socket.send(datagramPacket);
+            System.out.println("gui broadcast");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -201,6 +204,7 @@ public class BroadcastManager {
                 break;
             }
             case "DISCOVER_ONLINE": {
+                System.out.println("su ly broadcast");
                 UserConfig originConfig = (UserConfig) msg.payload.get("originConfig");
                 if (originConfig != null) {
                     try {
