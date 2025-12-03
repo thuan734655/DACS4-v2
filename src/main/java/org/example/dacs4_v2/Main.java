@@ -56,12 +56,12 @@ public class Main {
 
             joinMsg.payload.put("newPeerId", peerId);
             joinMsg.payload.put("newPeerConfig", localConfig);
-            bcast.broadcast(joinMsg);
+            bcast.broadcastNeighbor(joinMsg);
 
 
             hello.payload.put("newPeerId", peerId);
             hello.payload.put("newPeerConfig", localConfig);
-            bcast.broadcast(hello);
+            bcast.broadcastNeighbor(hello);
         }
 
         // CLI đơn giản

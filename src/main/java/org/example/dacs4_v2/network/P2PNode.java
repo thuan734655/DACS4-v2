@@ -69,7 +69,7 @@ public class P2PNode {
             BroadcastMessage joinMsg = new BroadcastMessage("JOIN_DHT", peerId);
             joinMsg.payload.put("newPeerId", peerId);
             joinMsg.payload.put("newPeerConfig", localConfig);
-            broadcastManager.broadcast(joinMsg);
+            broadcastManager.broadcastNeighbor(joinMsg);
 
         }
 

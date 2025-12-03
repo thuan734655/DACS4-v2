@@ -1,6 +1,7 @@
 package org.example.dacs4_v2.network.dht;
 
 import org.example.dacs4_v2.models.*;
+import org.example.dacs4_v2.network.P2PNode;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.io.*;
@@ -40,6 +41,9 @@ public class BroadcastManager {
                     InetAddress senderAddr = packet.getAddress();
                     int senderPort = packet.getPort();
 
+                    if(senderAddr.getHostAddress().equals(localUser.getUserConfig().getHost())) {
+                       continue;
+                    }
                     if (obj instanceof BroadcastMessage) {
                         handleBroadcast((BroadcastMessage) obj, senderAddr, senderPort);
                     } else if (obj instanceof BroadcastCancel) {
@@ -56,7 +60,7 @@ public class BroadcastManager {
     }
 
     // 📤 Gửi broadcast đến tất cả neighbor (flood with TTL)
-    public void broadcast(BroadcastMessage msg) {
+    public void broadcastNeighbor(BroadcastMessage msg) {
         if (msg.ttl <= 0) return;
         if (!seenBroadcasts.add(msg.id)) return; // chống loop
 
@@ -74,6 +78,16 @@ public class BroadcastManager {
 
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void broadcast(BroadcastMessage msg) {
+        try{
+            byte[] data = serialize(msg);
+            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getLocalIp()),BROADCAST_PORT);
+            socket.send(datagramPacket);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -102,7 +116,7 @@ public class BroadcastManager {
         // Giảm TTL và forward tiếp (trước khi xử lý local)
         if (msg.ttl > 1) {
             msg.ttl--;
-            broadcast(msg); // forward đến neighbor
+            broadcastNeighbor(msg); // forward đến neighbor
         }
 
         // Sinh delay ngẫu nhiên: 10–500ms
