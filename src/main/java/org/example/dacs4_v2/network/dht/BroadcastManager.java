@@ -88,7 +88,7 @@ public class BroadcastManager {
     public void broadcast(BroadcastMessage msg) {
         try{
             byte[] data = serialize(msg);
-            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getLocalIp()),BROADCAST_PORT);
+            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getBroadcastIP(P2PNode.getLocalIp())),BROADCAST_PORT);
             socket.send(datagramPacket);
             System.out.println("gui broadcast");
         } catch (Exception e) {

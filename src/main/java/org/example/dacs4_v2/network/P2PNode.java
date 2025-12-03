@@ -128,6 +128,11 @@ public class P2PNode {
         }
     }
 
+    public static String getBroadcastIP(String ip) {
+        String [] subIp = ip.split("\\.");
+        return subIp[0] + "." + subIp[1] + "."  + subIp[2] + ".255";
+    }
+
     // Lấy IPv4 của card mạng local, ưu tiên Wi-Fi/wlan, nếu không có thì lấy bất kỳ non-loopback
     public static String getLocalIp() throws SocketException {
         String fallback = "127.0.0.1";
