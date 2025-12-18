@@ -13,7 +13,7 @@ public class User implements Serializable {
     private String serviceName;
     private String host;
 
-    private Map<NeighborType, User> neighbors;
+    private Map<NeighborType, User> neighbors = new HashMap<>();
 
     public User(String host, String name, int port, int rank, String serviceName, String userId) {
         this.host = host;
