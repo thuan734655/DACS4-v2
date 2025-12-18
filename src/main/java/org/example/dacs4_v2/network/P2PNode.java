@@ -47,7 +47,7 @@ public class P2PNode {
         String hostIp =getLocalIp();
         System.out.println(hostIp);
 
-        this.localUser = new User(userId, name,rmiPort,rank,serviceName, userId);
+        this.localUser = new User(hostIp, name,rmiPort,rank,serviceName, userId);
         this.localUser.setRank(rank);
 
         // Khởi tạo RMI service
