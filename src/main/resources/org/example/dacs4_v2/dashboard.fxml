@@ -16,7 +16,6 @@
                 <ToggleButton text="Dashboard" maxWidth="Infinity" selected="true" onAction="#onGoDashboard"/>
                 <ToggleButton text="Play Game" maxWidth="Infinity"/>
                 <ToggleButton text="Rooms" maxWidth="Infinity" onAction="#onGoRooms"/>
-                <ToggleButton text="Online" maxWidth="Infinity" onAction="#onGoOnline"/>
                 <ToggleButton text="Statistics" maxWidth="Infinity"/>
 
                 <Pane VBox.vgrow="ALWAYS"/>
@@ -95,6 +94,18 @@
                         </VBox>
                     </children>
                 </HBox>
+
+                <!-- Online players list -->
+                <VBox spacing="12">
+                    <children>
+                        <Label text="Online Players" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+                        <ScrollPane prefHeight="220" fitToWidth="true" hbarPolicy="NEVER">
+                            <content>
+                                <VBox fx:id="playersContainer" spacing="8"/>
+                            </content>
+                        </ScrollPane>
+                    </children>
+                </VBox>
             </children>
         </VBox>
     </center>

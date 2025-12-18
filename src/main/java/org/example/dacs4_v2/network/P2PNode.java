@@ -99,7 +99,7 @@ public class P2PNode {
             localUser.setNeighbor(NeighborType.SUCCESSOR, listPeerRes.higher(localUser));
 
             System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-            System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR )+ "pree");
+            System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
         }, 3, TimeUnit.SECONDS);
     }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {

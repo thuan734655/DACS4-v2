@@ -84,9 +84,13 @@ public class User implements Serializable {
     @Override
     public String toString() {
         return "User{" +
-                "userId='" + userId + '\'' +
+                "host='" + host + '\'' +
+                ", userId='" + userId + '\'' +
                 ", name='" + name + '\'' +
-                ", neighbors=" + neighbors.keySet() +
+                ", rank=" + rank +
+                ", port=" + port +
+                ", serviceName='" + serviceName + '\'' +
+                ", neighbors=" + neighbors +
                 '}';
     }
 }
