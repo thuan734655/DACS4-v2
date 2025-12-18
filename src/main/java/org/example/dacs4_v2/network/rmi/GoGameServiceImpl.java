@@ -120,31 +120,32 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
     @Override
     public UserConfig findPeerById(String targetPeerId, int maxHops) throws RemoteException {
-        if (maxHops <= 0 || targetPeerId == null || targetPeerId.isEmpty()) {
-            return null;
-        }
-
-        String myId = localUser.getUserId();
-        if (myId != null && myId.equals(targetPeerId)) {
-            return localUser.getUserConfig();
-        }
-
-        UserConfig nextHop = selectNextHopFromNeighbors(targetPeerId);
-        if (nextHop == null) {
-            return null;
-        }
-
-        if (nextHop.getUserId() != null && nextHop.getUserId().equals(myId)) {
-            return null;
-        }
-
-        try {
-            IGoGameService stub = getStub(nextHop);
-            return stub.findPeerById(targetPeerId, maxHops - 1);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
+//        if (maxHops <= 0 || targetPeerId == null || targetPeerId.isEmpty()) {
+//            return null;
+//        }
+//
+//        String myId = localUser.getUserId();
+//        if (myId != null && myId.equals(targetPeerId)) {
+//            return localUser.getUserConfig();
+//        }
+//
+////        UserConfig nextHop = selectNextHopFromNeighbors(targetPeerId);
+//        if (nextHop == null) {
+//            return null;
+//        }
+//
+//        if (nextHop.getUserId() != null && nextHop.getUserId().equals(myId)) {
+//            return null;
+//        }
+//
+//        try {
+//            IGoGameService stub = getStub(nextHop);
+//            return stub.findPeerById(targetPeerId, maxHops - 1);
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return null;
+//        }
+        return null;
     }
 
     // rmi/GoGameServiceImpl.java
@@ -174,25 +175,24 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) Naming.lookup(url);
     }
-
-    private UserConfig selectNextHopFromNeighbors(String targetPeerId) {
-        if (targetPeerId == null || targetPeerId.isEmpty()) return null;
-
-        String myId = localUser.getUserId();
-        if (myId == null) return null;
-
-        int bestDistance = Math.abs(myId.compareTo(targetPeerId));
-        UserConfig best = null;
-
-        for (NeighborType type : NeighborType.values()) {
-            UserConfig c = localUser.getNeighbor(type);
-            if (c == null || c.getUserId() == null) continue;
-            int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
-            if (dist < bestDistance) {
-                bestDistance = dist;
-                best = c;
-            }
-        }
-        return best;
-    }
+//
+//    private UserConfig selectNextHopFromNeighbors(String targetPeerId) {
+//        if (targetPeerId == null || targetPeerId.isEmpty()) return null;
+//
+//        String myId = localUser.getUserId();
+//        if (myId == null) return null;
+//
+//        int bestDistance = Math.abs(myId.compareTo(targetPeerId));
+//        UserConfig best = null;
+//
+//        for (NeighborType type : NeighborType.values()) {
+//            if (c == null || c.getUserId() == null) continue;
+//            int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
+//            if (dist < bestDistance) {
+//                bestDistance = dist;
+//                best = c;
+//            }
+//        }
+//        return best;
+//    }
 }

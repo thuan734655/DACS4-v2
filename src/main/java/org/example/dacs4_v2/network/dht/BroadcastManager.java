@@ -72,30 +72,6 @@ public class BroadcastManager {
         }
     }
 
-    // Gửi broadcast đến tất cả neighbor (flood with TTL)
-    public void broadcastNeighbor(BroadcastMessage msg) {
-        if (msg.ttl <= 0) return;
-        if (!seenBroadcasts.add(msg.id)) return; // chống loop
-
-        try {
-            byte[] data = serialize(msg);
-            for (UserConfig neighbor : dhtNode.getAllNeighborConfigs()) {
-                if (neighbor == null) continue;
-                try {
-                    DatagramPacket pkt = new DatagramPacket(
-                            data, data.length,
-                            InetAddress.getByName(neighbor.getHost()), BROADCAST_PORT
-                    );
-                    socket.send(pkt);
-                } catch (Exception e) {
-
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     public void broadcast(BroadcastMessage msg) {
         try{
             byte[] data = serialize(msg);
