@@ -6,7 +6,6 @@ import javafx.scene.control.TextField;
 import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.User;
-import org.example.dacs4_v2.models.UserConfig;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 
@@ -36,10 +35,9 @@ public class LoginController {
             // đơn giản: nếu rỗng thì không làm gì
             return;
         }
-        String peerId = randomPeerId(10);
+        String userId = randomPeerId(10);
         // Tạo đối tượng User với thông tin tối thiểu, các thông tin khác coi như rỗng
-        UserConfig config = null; // chưa có cấu hình mạng ở bước login
-        User user = new User(peerId, name, config);
+        User user = new User(userId, name);
         UserStorage.saveUser(user);
 
         new Thread(() -> {

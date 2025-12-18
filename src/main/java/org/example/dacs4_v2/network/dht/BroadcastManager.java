@@ -39,7 +39,7 @@ public class BroadcastManager {
                     Object obj = deserialize(packet.getData(), packet.getLength());
                     InetAddress senderAddr = packet.getAddress();
 
-                    if(senderAddr.getHostAddress().equals(localUser.getUserConfig().getHost())) {
+                    if(senderAddr.getHostAddress().equals(localUser.getHost())) {
                         System.out.println("trung");
 
                         continue;
@@ -87,7 +87,7 @@ public class BroadcastManager {
         switch (msg.type) {
             case "DISCOVER_ONLINE": {
                 System.out.println("su ly broadcast");
-                UserConfig originConfig = (UserConfig) msg.payload.get("originConfig");
+                User originConfig = (User) msg.payload.get("originConfig");
                 if (originConfig != null) {
                     try {
                         IGoGameService stub = getRmiStub(originConfig);
@@ -123,7 +123,7 @@ public class BroadcastManager {
         return ois.readObject();
     }
 
-    private IGoGameService getRmiStub(UserConfig config) throws Exception {
+    private IGoGameService getRmiStub(User config) throws Exception {
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) java.rmi.Naming.lookup(url);
     }

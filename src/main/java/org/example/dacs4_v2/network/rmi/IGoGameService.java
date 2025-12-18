@@ -5,7 +5,6 @@ import java.rmi.RemoteException;
 import java.util.List;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.User;
-import org.example.dacs4_v2.models.UserConfig;
 import org.example.dacs4_v2.models.Moves;
 
 public interface IGoGameService extends Remote {
@@ -13,7 +12,7 @@ public interface IGoGameService extends Remote {
     void inviteToGame(Game game) throws RemoteException;
 
     // Xin join phòng
-    void joinRequest(UserConfig requester, String gameId) throws RemoteException;
+    void joinRequest(User requester, String gameId) throws RemoteException;
 
     // Gửi nước đi
     void submitMove(Moves move, long seqNo) throws RemoteException;
@@ -25,16 +24,16 @@ public interface IGoGameService extends Remote {
     void onReconnectRequest(String peerId, String gameId) throws RemoteException;
     void onReconnectOffer(Game gameSnapshot) throws RemoteException;
     // Gửi cho peer mới: "Tôi là successor gần nhất của bạn"
-    void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException;
+    void notifyAsSuccessor1(User me, User nextSuccessor) throws RemoteException;
 
     // Gửi cho peer mới: "Tôi là successor thứ 2 của bạn"
-    void notifyAsSuccessor2(UserConfig me) throws RemoteException;
+    void notifyAsSuccessor2(User me) throws RemoteException;
 
     // Gửi cho peer mới: "Tôi là predecessor gần nhất của bạn"
-    void notifyAsPredecessor1(UserConfig me, UserConfig prevPredecessor) throws RemoteException;
+    void notifyAsPredecessor1(User me, User prevPredecessor) throws RemoteException;
 
     // Gửi cho peer mới: "Tôi là predecessor thứ 2 của bạn"
-    void notifyAsPredecessor2(UserConfig me) throws RemoteException;
+    void notifyAsPredecessor2(User me) throws RemoteException;
 
     // Lấy lịch sử (giới hạn 20 game)
     List<Game> getGameHistory(int limit) throws RemoteException;
@@ -43,5 +42,5 @@ public interface IGoGameService extends Remote {
     void onOnlinePeerDiscovered(User user) throws RemoteException;
 
     // Lookup peer theo userId qua DHT (chuỗi RMI, không broadcast)
-    UserConfig findPeerById(String targetPeerId, int maxHops) throws RemoteException;
+    User findPeerById(String targetPeerId, int maxHops) throws RemoteException;
 }

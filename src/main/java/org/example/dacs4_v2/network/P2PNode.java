@@ -4,7 +4,6 @@ import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.dht.BroadcastManager;
 import org.example.dacs4_v2.network.dht.DHTNode;
-import org.example.dacs4_v2.network.discovery.LanDiscoveryManager;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
@@ -28,7 +27,7 @@ public class P2PNode {
     private final TreeSet<User> listPeerRes = new TreeSet<>(  Comparator.comparing(User::getUserId));
     private boolean started = false;
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
 
     public synchronized void start() throws Exception {
@@ -40,41 +39,25 @@ public class P2PNode {
         }
 
         String name = stored.getName();
-        String peerId = stored.getUserId();
+        String userId = stored.getUserId();
+        String serviceName = "GoGameService";
         int rank = stored.getRank();
         int rmiPort = 1099;
 
         String hostIp =getLocalIp();
         System.out.println(hostIp);
-        UserConfig localConfig = new UserConfig(peerId, "GoGameService", rmiPort, hostIp);
 
-        this.localUser = new User(peerId, name, localConfig);
+        this.localUser = new User(userId, name,rmiPort,rank,serviceName, userId);
         this.localUser.setRank(rank);
 
         // Khởi tạo RMI service
         this.service = new GoGameServiceImpl(localUser);
         this.registry = LocateRegistry.createRegistry(rmiPort);
-        registry.rebind("GoGameService", service);
-
-        // Cho phép peer khác trong LAN discover được mình
-        LanDiscoveryManager.startResponder(rmiPort, "GoGameService", peerId);
+        registry.rebind(serviceName, service);
 
         // Khởi tạo DHT + BroadcastManager
         this.dhtNode = new DHTNode(localUser);
         this.broadcastManager = new BroadcastManager(localUser, dhtNode);
-
-        // Tìm seed trong LAN và JOIN_DHT
-        List<UserConfig> seeds = LanDiscoveryManager.discoverPeers(1500);
-        System.out.println(seeds +"seeds");
-        if (!seeds.isEmpty()) {
-            UserConfig seed = seeds.get(0);
-//            localUser.setNeighbor(NeighborType.SUCCESSOR, seed);
-
-            BroadcastMessage joinMsg = new BroadcastMessage("JOIN_DHT", peerId);
-            joinMsg.payload.put("newPeerId", peerId);
-            joinMsg.payload.put("newPeerConfig", localConfig);
-
-        }
 
         started = true;
     }
@@ -126,7 +109,7 @@ public class P2PNode {
             onlinePeers.clear();
         }
         BroadcastMessage msg = new BroadcastMessage("DISCOVER_ONLINE", localUser.getUserId());
-        msg.payload.put("originConfig", localUser.getUserConfig());
+        msg.payload.put("originConfig", localUser);
         System.out.println("bat dau....");
         broadcastManager.broadcast(msg);
 

@@ -15,9 +15,6 @@ import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
 
-/**
- * 
- */
 public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameService {
     private final User localUser;
     private final ConcurrentHashMap<String, Game> activeGames = new ConcurrentHashMap<>();
@@ -56,8 +53,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         });
     }
 
-    @Override
-    public void joinRequest(UserConfig requester, String gameId) throws RemoteException {
+    public void joinRequest(User requester, String gameId) throws RemoteException {
         Game game = activeGames.get(gameId);
         if (game != null && game.getRivalId() == null || game.getRivalId().isEmpty()) {
             game.setRivalId(requester.getUserId());
@@ -119,7 +115,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
-    public UserConfig findPeerById(String targetPeerId, int maxHops) throws RemoteException {
+    public User findPeerById(String targetPeerId, int maxHops) throws RemoteException {
 //        if (maxHops <= 0 || targetPeerId == null || targetPeerId.isEmpty()) {
 //            return null;
 //        }
@@ -150,28 +146,28 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
     // rmi/GoGameServiceImpl.java
     @Override
-    public void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException {
+    public void notifyAsSuccessor1(User me, User nextSuccessor) throws RemoteException {
 
         System.out.println("→ Đã cập nhật SUCCESSOR_1 & SUCCESSOR_2");
     }
 
     @Override
-    public void notifyAsSuccessor2(UserConfig me) throws RemoteException {
+    public void notifyAsSuccessor2(User me) throws RemoteException {
 
     }
 
     @Override
-    public void notifyAsPredecessor1(UserConfig me, UserConfig prevPredecessor) throws RemoteException {
+    public void notifyAsPredecessor1(User me, User prevPredecessor) throws RemoteException {
 
         System.out.println("→ Đã cập nhật PREDECESSOR_1 & PREDECESSOR_2");
     }
 
     @Override
-    public void notifyAsPredecessor2(UserConfig me) throws RemoteException {
+    public void notifyAsPredecessor2(User me) throws RemoteException {
 
     }
 
-    private IGoGameService getStub(UserConfig config) throws Exception {
+    private IGoGameService getStub(User config) throws Exception {
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) Naming.lookup(url);
     }

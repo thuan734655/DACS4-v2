@@ -9,7 +9,6 @@ import javafx.scene.layout.Region;
 import javafx.stage.Stage;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.User;
-import org.example.dacs4_v2.models.UserConfig;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
@@ -86,7 +85,7 @@ public class CreateRoomController {
         try {
             P2PNode node = P2PContext.getInstance().getOrCreateNode();
             User local = node.getLocalUser();
-            if (local == null || local.getUserConfig() == null) {
+            if (local == null) {
                 setStatus("Local peer not ready");
                 return;
             }
@@ -104,7 +103,7 @@ public class CreateRoomController {
                 return;
             }
 
-            UserConfig targetConfig = localService.findPeerById(opponentPeerId, 12);
+            User targetConfig = localService.findPeerById(opponentPeerId, 12);
             if (targetConfig == null) {
                 setStatus("Opponent not found or offline");
                 return;
