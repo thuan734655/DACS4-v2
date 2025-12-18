@@ -11,9 +11,10 @@ import org.example.dacs4_v2.network.rmi.IGoGameService;
 import java.net.*;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class P2PNode {
 
@@ -24,10 +25,13 @@ public class P2PNode {
     private Registry registry;
 
     private final List<User> onlinePeers = Collections.synchronizedList(new ArrayList<>());
-
+    private final TreeSet<User> listPeerRes = new TreeSet<>(  Comparator.comparing(User::getUserId));
     private boolean started = false;
 
-    public synchronized void startIfNeeded() throws Exception {
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
+
+
+    public synchronized void start() throws Exception {
         if (started) return;
 
         User stored = UserStorage.loadUser();
@@ -64,7 +68,7 @@ public class P2PNode {
         System.out.println(seeds +"seeds");
         if (!seeds.isEmpty()) {
             UserConfig seed = seeds.get(0);
-            localUser.setNeighbor(NeighborType.SUCCESSOR_1, seed);
+//            localUser.setNeighbor(NeighborType.SUCCESSOR, seed);
 
             BroadcastMessage joinMsg = new BroadcastMessage("JOIN_DHT", peerId);
             joinMsg.payload.put("newPeerId", peerId);
@@ -97,22 +101,31 @@ public class P2PNode {
     }
 
     public void addOnlinePeer(User user) {
-        System.out.println(user + "user");
         if (user == null) return;
         synchronized (onlinePeers) {
             boolean exists = onlinePeers.stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
             if (!exists) {
                 onlinePeers.add(user);
+                listPeerRes.add(user);
             }
         }
     }
 
+    public void defNeighbor() {
+        scheduler.schedule(() -> {
+            localUser.setNeighbor(NeighborType.PREDECESSOR, listPeerRes.lower(localUser));
+            localUser.setNeighbor(NeighborType.SUCCESSOR, listPeerRes.higher(localUser));
+
+            System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
+            System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR )+ "pree");
+        }, 3, TimeUnit.SECONDS);
+    }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
-        startIfNeeded();
+        start();
+        defNeighbor();
         synchronized (onlinePeers) {
             onlinePeers.clear();
         }
-
         BroadcastMessage msg = new BroadcastMessage("DISCOVER_ONLINE", localUser.getUserId());
         msg.payload.put("originConfig", localUser.getUserConfig());
         System.out.println("bat dau....");

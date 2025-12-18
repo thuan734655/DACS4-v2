@@ -49,7 +49,7 @@ public class Main {
             System.out.println("[BOOT] Tìm được seed trong LAN: " + seed.getUserId() + "@" + seed.getHost() + ":" + seed.getPort());
 
             // Tạm thởi coi seed là SUCCESSOR_1 để broadcast JOIN_DHT vào overlay của nó
-            localUser.setNeighbor(NeighborType.SUCCESSOR_1, seed);
+            localUser.setNeighbor(NeighborType.SUCCESSOR, seed);
 
             BroadcastMessage joinMsg = new BroadcastMessage("JOIN_DHT", peerId);
             BroadcastMessage hello = new BroadcastMessage("HELLO", peerId);

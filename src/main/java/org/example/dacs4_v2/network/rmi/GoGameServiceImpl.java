@@ -1,7 +1,6 @@
 package org.example.dacs4_v2.network.rmi;
 
 import java.rmi.Naming;
-import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
@@ -151,34 +150,24 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     // rmi/GoGameServiceImpl.java
     @Override
     public void notifyAsSuccessor1(UserConfig me, UserConfig nextSuccessor) throws RemoteException {
-        System.out.println("[DHT] ✅ Tôi là SUCCESSOR_1 của peer mới: " + me.getUserId());
-        localUser.setNeighbor(NeighborType.SUCCESSOR_1, me);
-        if (nextSuccessor != null) {
-            localUser.setNeighbor(NeighborType.SUCCESSOR_2, nextSuccessor);
-        }
+
         System.out.println("→ Đã cập nhật SUCCESSOR_1 & SUCCESSOR_2");
     }
 
     @Override
     public void notifyAsSuccessor2(UserConfig me) throws RemoteException {
-        System.out.println("[DHT] ✅ Tôi là SUCCESSOR_2 của peer mới: " + me.getUserId());
-        localUser.setNeighbor(NeighborType.SUCCESSOR_2, me);
+
     }
 
     @Override
     public void notifyAsPredecessor1(UserConfig me, UserConfig prevPredecessor) throws RemoteException {
-        System.out.println("[DHT] ✅ Tôi là PREDECESSOR_1 của peer mới: " + me.getUserId());
-        localUser.setNeighbor(NeighborType.PREDECESSOR_1, me);
-        if (prevPredecessor != null) {
-            localUser.setNeighbor(NeighborType.PREDECESSOR_2, prevPredecessor);
-        }
+
         System.out.println("→ Đã cập nhật PREDECESSOR_1 & PREDECESSOR_2");
     }
 
     @Override
     public void notifyAsPredecessor2(UserConfig me) throws RemoteException {
-        System.out.println("[DHT] ✅ Tôi là PREDECESSOR_2 của peer mới: " + me.getUserId());
-        localUser.setNeighbor(NeighborType.PREDECESSOR_2, me);
+
     }
 
     private IGoGameService getStub(UserConfig config) throws Exception {

@@ -11,15 +11,12 @@ public class DHTNode {
         this.localUser = user;
     }
 
-    // Cập nhật neighbor (gọi sau khi join thành công)
     public void updateNeighbors(
             UserConfig succ1, UserConfig succ2,
             UserConfig pred1, UserConfig pred2
     ) {
-        localUser.setNeighbor(NeighborType.SUCCESSOR_1, succ1);
-        localUser.setNeighbor(NeighborType.SUCCESSOR_2, succ2);
-        localUser.setNeighbor(NeighborType.PREDECESSOR_1, pred1);
-        localUser.setNeighbor(NeighborType.PREDECESSOR_2, pred2);
+        localUser.setNeighbor(NeighborType.SUCCESSOR, succ1);
+        localUser.setNeighbor(NeighborType.PREDECESSOR, pred1);
     }
 
     // Lấy tất cả neighbor để broadcast
