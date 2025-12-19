@@ -6,6 +6,8 @@ import org.example.dacs4_v2.network.dht.BroadcastManager;
 import org.example.dacs4_v2.network.dht.DHTNode;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
+import org.example.dacs4_v2.test.TestPeerContext;
+import org.example.dacs4_v2.utils.GetIPV4;
 
 import java.net.*;
 import java.rmi.registry.LocateRegistry;
@@ -44,42 +46,20 @@ public class P2PNode {
         int rank = stored.getRank();
         int rmiPort = 1099;
 
-        String hostIp =getLocalIp();
+        String hostIp = GetIPV4.getLocalIp();
         System.out.println(hostIp);
 
         this.localUser = new User(hostIp, name,rmiPort,rank,serviceName, userId);
         this.localUser.setRank(rank);
 
-        // Khởi tạo RMI service
         this.service = new GoGameServiceImpl(localUser);
         this.registry = LocateRegistry.createRegistry(rmiPort);
         registry.rebind(serviceName, service);
 
-        // Khởi tạo DHT + BroadcastManager
         this.dhtNode = new DHTNode(localUser);
         this.broadcastManager = new BroadcastManager(localUser, dhtNode);
 
         started = true;
-    }
-
-    public void shutdown() {
-        try {
-            if (broadcastManager != null) {
-                broadcastManager.close();
-            }
-        } catch (Exception ignored) {}
-    }
-
-    public User getLocalUser() {
-        return localUser;
-    }
-
-    public BroadcastManager getBroadcastManager() {
-        return broadcastManager;
-    }
-
-    public IGoGameService getLocalService() {
-        return service;
     }
 
     public void addOnlinePeer(User user) {
@@ -94,12 +74,28 @@ public class P2PNode {
     }
 
     public void defNeighbor() {
+        System.out.println("def");
         scheduler.schedule(() -> {
-            localUser.setNeighbor(NeighborType.PREDECESSOR, listPeerRes.lower(localUser));
-            localUser.setNeighbor(NeighborType.SUCCESSOR, listPeerRes.higher(localUser));
+            User prevPeer = listPeerRes.lower(localUser);
+            User succPeer = listPeerRes.higher(localUser);
+            localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
+            localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
+            try {
+                if(prevPeer != null)   {
+                    IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
+                    stubPrev.notifyAsPredecessor(localUser);
+                }
+                if(succPeer != null) {
+                    IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
+                    stubSucc.notifyAsSuccessor(localUser);
+                }
 
-            System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-            System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
+             System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
+             System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
+
+            }catch (Exception e) {
+             e.printStackTrace();
+         }
         }, 3, TimeUnit.SECONDS);
     }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
@@ -127,37 +123,44 @@ public class P2PNode {
         String [] subIp = ip.split("\\.");
         return subIp[0] + "." + subIp[1] + "."  + subIp[2] + ".255";
     }
+    public void shutdown() {
+        try {
+            if (broadcastManager != null) {
+                broadcastManager.close();
+                User prevPeer = listPeerRes.lower(localUser);
+                User succPeer = listPeerRes.higher(localUser);
+                try { // gan lai peer
+                    if(prevPeer != null)   {
+                        IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
+                        stubPrev.notifyAsPredecessor(succPeer);
+                    }
+                    if(succPeer != null) {
+                        IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
+                        stubSucc.notifyAsSuccessor(prevPeer);
+                    }
 
-    // Lấy IPv4 của card mạng local, ưu tiên Wi-Fi/wlan, nếu không có thì lấy bất kỳ non-loopback
-    public static String getLocalIp() throws SocketException {
-        String fallback = "127.0.0.1";
-
-        // Ưu tiên interface Wi-Fi
-        for (NetworkInterface ni : java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
-            if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
-            String name = ni.getDisplayName().toLowerCase();
-            if (!(name.contains("wi-fi") || name.contains("wifi") || name.contains("wlan") || name.contains("wireless"))) {
-                continue;
-            }
-            for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
-                InetAddress addr = ia.getAddress();
-                if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-                    return addr.getHostAddress();
+                    System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
+                    System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
+                }catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
-        }
+        } catch (Exception ignored) {}
+    }
 
-        // Nếu không tìm thấy Wi-Fi, lấy bất kỳ IPv4 non-loopback
-        for (NetworkInterface ni : java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
-            if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
-            for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
-                InetAddress addr = ia.getAddress();
-                if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-                    return addr.getHostAddress();
-                }
-            }
-        }
-        System.out.println(fallback + "mang");
-        return fallback;
+    public User getLocalUser() {
+        return localUser;
+    }
+
+    public void setLocalUser(User localUser) {
+        this.localUser = localUser;
+    }
+
+    public IGoGameService getService() {
+        return service;
+    }
+
+    public void setService(IGoGameService service) {
+        this.service = service;
     }
 }

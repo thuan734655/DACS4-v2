@@ -22,7 +22,7 @@
 
                 <Separator/>
                 <Button text="Settings" maxWidth="Infinity"/>
-                <Button text="Logout" maxWidth="Infinity" style="-fx-text-fill: #e04545;"/>
+                <Button text="Logout" maxWidth="Infinity" style="-fx-text-fill: #e04545;" onAction="#onLogout"/>
             </children>
         </VBox>
     </left>

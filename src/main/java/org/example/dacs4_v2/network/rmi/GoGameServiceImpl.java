@@ -144,30 +144,17 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return null;
     }
 
-    // rmi/GoGameServiceImpl.java
-    @Override
-    public void notifyAsSuccessor1(User me, User nextSuccessor) throws RemoteException {
-
-        System.out.println("→ Đã cập nhật SUCCESSOR_1 & SUCCESSOR_2");
+    public void notifyAsSuccessor( User nextSuccessor) throws RemoteException {
+        localUser.setNeighbor(NeighborType.SUCCESSOR, nextSuccessor);
+        System.out.println("da cap nhat succPeer" + nextSuccessor);
     }
 
-    @Override
-    public void notifyAsSuccessor2(User me) throws RemoteException {
-
+    public void notifyAsPredecessor(User prevPredecessor) throws RemoteException {
+        localUser.setNeighbor(NeighborType.SUCCESSOR, prevPredecessor);
+        System.out.println("da cap nhat prevPeer" + prevPredecessor);
     }
 
-    @Override
-    public void notifyAsPredecessor1(User me, User prevPredecessor) throws RemoteException {
-
-        System.out.println("→ Đã cập nhật PREDECESSOR_1 & PREDECESSOR_2");
-    }
-
-    @Override
-    public void notifyAsPredecessor2(User me) throws RemoteException {
-
-    }
-
-    private IGoGameService getStub(User config) throws Exception {
+    public static IGoGameService getStub(User config) throws Exception {
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) Naming.lookup(url);
     }

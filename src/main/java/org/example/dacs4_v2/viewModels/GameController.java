@@ -117,7 +117,7 @@ public class GameController {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                IGoGameService service = node.getLocalService();
+                IGoGameService service = node.getService();
                 if (service != null) {
                     service.submitMove(move, order);
                 }

@@ -64,6 +64,19 @@ public class DashboardController {
         // Sau này điều hướng tới màn chơi với AI riêng nếu cần
     }
 
+    @FXML
+    private void onLogout() {
+        try {
+            P2PNode node = P2PContext.getInstance().getNode();
+            if (node != null) {
+                node.shutdown();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        HelloApplication.navigateTo("login.fxml");
+    }
+
     private void refreshOnlinePlayers() {
         new Thread(() -> {
             try {

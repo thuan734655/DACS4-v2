@@ -8,6 +8,8 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
@@ -15,6 +17,7 @@ import org.example.dacs4_v2.network.P2PNode;
 public class HelloApplication extends Application {
 
     private static Stage primaryStage;
+    private static final Map<String, Parent> viewCache = new HashMap<>();
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -28,6 +31,16 @@ public class HelloApplication extends Application {
 
         stage.setTitle("Go Game Online");
         stage.setScene(scene);
+        stage.setOnCloseRequest(event -> {
+            try {
+                P2PNode node = P2PContext.getInstance().getNode();
+                if (node != null) {
+                    node.shutdown();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
         stage.show();
 
         if (userFile.exists()) {
@@ -43,8 +56,15 @@ public class HelloApplication extends Application {
     }
 
     private static Parent loadFXML(String fxmlName) throws IOException {
+        Parent cached = viewCache.get(fxmlName);
+        if (cached != null) {
+            return cached;
+        }
+
         FXMLLoader loader = new FXMLLoader(HelloApplication.class.getResource(fxmlName));
-        return loader.load();
+        Parent root = loader.load();
+        viewCache.put(fxmlName, root);
+        return root;
     }
 
     public static void navigateTo(String fxmlName) {

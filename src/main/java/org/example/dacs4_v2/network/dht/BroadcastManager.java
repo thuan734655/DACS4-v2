@@ -2,7 +2,9 @@ package org.example.dacs4_v2.network.dht;
 
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
+import org.example.dacs4_v2.utils.GetIPV4;
 
 import java.io.*;
 import java.net.*;
@@ -13,7 +15,6 @@ public class BroadcastManager {
     private final int BROADCAST_PORT = 9876;
     private final DatagramSocket socket;
     private final User localUser;
-    private final DHTNode dhtNode;
 
     private final Set<String> seenBroadcasts = ConcurrentHashMap.newKeySet();
 
@@ -22,7 +23,6 @@ public class BroadcastManager {
 
     public BroadcastManager(User user, DHTNode dhtNode) throws SocketException {
         this.localUser = user;
-        this.dhtNode = dhtNode;
         this.socket = new DatagramSocket(BROADCAST_PORT);
         startReceiver();
         startWorkers();
@@ -75,7 +75,7 @@ public class BroadcastManager {
     public void broadcast(BroadcastMessage msg) {
         try{
             byte[] data = serialize(msg);
-            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getBroadcastIP(P2PNode.getLocalIp())),BROADCAST_PORT);
+            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, InetAddress.getByName(P2PNode.getBroadcastIP(GetIPV4.getLocalIp())),BROADCAST_PORT);
             socket.send(datagramPacket);
             System.out.println("gui broadcast");
         } catch (Exception e) {
@@ -90,7 +90,7 @@ public class BroadcastManager {
                 User originConfig = (User) msg.payload.get("originConfig");
                 if (originConfig != null) {
                     try {
-                        IGoGameService stub = getRmiStub(originConfig);
+                        IGoGameService stub = GoGameServiceImpl.getStub(originConfig);
                         stub.onOnlinePeerDiscovered(localUser);
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -123,13 +123,11 @@ public class BroadcastManager {
         return ois.readObject();
     }
 
-    private IGoGameService getRmiStub(User config) throws Exception {
-        String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
-        return (IGoGameService) java.rmi.Naming.lookup(url);
-    }
-
     public void close() {
         socket.close();
         workerPool.shutdown();
     }
+
+    // test
+
 }

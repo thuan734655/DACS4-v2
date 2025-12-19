@@ -97,7 +97,7 @@ public class CreateRoomController {
             Game game = new Game(gameId, hostPeerId, userId, rivalId, boardSize, komiInt, name);
 
             // Lookup đối thủ qua DHT
-            IGoGameService localService = node.getLocalService();
+            IGoGameService localService = node.getService();
             if (localService == null) {
                 setStatus("Service not ready");
                 return;
@@ -109,7 +109,7 @@ public class CreateRoomController {
                 return;
             }
 
-            IGoGameService targetStub = node.getLocalService();
+            IGoGameService targetStub = node.getService();
             try {
                 java.rmi.Naming.rebind("temp://noop", targetStub); // no-op to satisfy compiler
             } catch (Exception ignored) {}
