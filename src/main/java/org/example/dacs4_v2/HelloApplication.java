@@ -8,6 +8,7 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,10 +20,21 @@ public class HelloApplication extends Application {
     private static Stage primaryStage;
     private static final Map<String, Parent> viewCache = new HashMap<>();
 
+    public static String ip;
+    public static InetAddress localIp;
+    public static  int rmiPort;
+
     @Override
     public void start(Stage stage) throws Exception {
 
-        String ip = getBindIp();
+         ip = getBindIp();
+         rmiPort = getRmiPort();
+         try {
+             localIp = InetAddress.getByName(ip);
+         }catch(Exception e ){
+             e.printStackTrace();
+         }
+
         System.out.println("ip: " + ip);
 
         primaryStage = stage;
@@ -47,16 +59,6 @@ public class HelloApplication extends Application {
         });
         stage.show();
 
-        if (userFile.exists()) {
-            new Thread(() -> {
-                try {
-                    P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                    node.requestOnlinePeers(1500);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }, "p2p-bootstrap-thread").start();
-        }
     }
 
     private static Parent loadFXML(String fxmlName) throws IOException {
@@ -94,9 +96,20 @@ public class HelloApplication extends Application {
             if (arg.startsWith("--bind.ip=")) {
                 return arg.split("=")[1];
             }
+
         }
         throw new RuntimeException("Thiếu --bind.ip");
     }
+    private int getRmiPort() {
+        for (String arg : getParameters().getRaw()) {
+            if (arg.startsWith("--bind.rmiPort")) {
+                return Integer.parseInt(arg.split("=")[1]);
+            }
+
+        }
+        throw new RuntimeException("Thiếu --bind.ip");
+    }
+
 
 }
 

@@ -1,13 +1,13 @@
 package org.example.dacs4_v2.network;
 
+import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.dht.BroadcastManager;
 import org.example.dacs4_v2.network.dht.DHTNode;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
-import org.example.dacs4_v2.test.TestPeerContext;
-import org.example.dacs4_v2.utils.GetIPV4;
+
 
 import java.net.*;
 import java.rmi.registry.LocateRegistry;
@@ -44,9 +44,9 @@ public class P2PNode {
         String userId = stored.getUserId();
         String serviceName = "GoGameService";
         int rank = stored.getRank();
-        int rmiPort = 1099;
+        int rmiPort = HelloApplication.rmiPort;
 
-        String hostIp = GetIPV4.getLocalIp();
+        String hostIp = HelloApplication.ip;
         System.out.println(hostIp);
 
         this.localUser = new User(hostIp, name,rmiPort,rank,serviceName, userId);
@@ -57,7 +57,7 @@ public class P2PNode {
         registry.rebind(serviceName, service);
 
         this.dhtNode = new DHTNode(localUser);
-        this.broadcastManager = new BroadcastManager(localUser, dhtNode);
+        this.broadcastManager = new BroadcastManager(localUser);
 
         started = true;
     }
@@ -69,38 +69,37 @@ public class P2PNode {
             if (!exists) {
                 onlinePeers.add(user);
                 listPeerRes.add(user);
+                defNeighbor();
             }
         }
     }
 
     public void defNeighbor() {
         System.out.println("def");
-        scheduler.schedule(() -> {
-            User prevPeer = listPeerRes.lower(localUser);
-            User succPeer = listPeerRes.higher(localUser);
-            localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
-            localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
+
             try {
+                User prevPeer = listPeerRes.lower(localUser);
+                User succPeer = listPeerRes.higher(localUser);
+
+                localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
+                localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
                 if(prevPeer != null)   {
                     IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
                     stubPrev.notifyAsPredecessor(localUser);
+                    System.out.println("peer prev" + prevPeer.getName());
                 }
                 if(succPeer != null) {
+                    System.out.println("peer prev" + prevPeer.getName());
                     IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
                     stubSucc.notifyAsSuccessor(localUser);
                 }
 
-             System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-             System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
-
             }catch (Exception e) {
              e.printStackTrace();
          }
-        }, 3, TimeUnit.SECONDS);
     }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
         start();
-        defNeighbor();
         synchronized (onlinePeers) {
             onlinePeers.clear();
         }
