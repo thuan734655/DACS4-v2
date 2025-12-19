@@ -85,13 +85,13 @@ public class P2PNode {
                 localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
                 if(prevPeer != null)   {
                     IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                    stubPrev.notifyAsPredecessor(localUser);
-                    System.out.println("peer prev" + prevPeer.getName());
+                    stubPrev.notifyAsSuccessor(localUser);
+                    System.out.println("prev peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
                 }
                 if(succPeer != null) {
-                    System.out.println("peer prev" + prevPeer.getName());
                     IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                    stubSucc.notifyAsSuccessor(localUser);
+                    stubSucc.notifyAsPredecessor(localUser);
+                    System.out.println("succ peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
                 }
 
             }catch (Exception e) {
