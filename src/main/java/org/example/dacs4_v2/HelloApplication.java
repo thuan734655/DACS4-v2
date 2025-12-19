@@ -15,12 +15,16 @@ import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 
 public class HelloApplication extends Application {
-
+    private static Application.Parameters params;
     private static Stage primaryStage;
     private static final Map<String, Parent> viewCache = new HashMap<>();
 
     @Override
     public void start(Stage stage) throws Exception {
+
+        String ip = getBindIp();
+        System.out.println("ip: " + ip);
+
         primaryStage = stage;
         // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
         File userFile = new File("data/user.json");
@@ -84,5 +88,15 @@ public class HelloApplication extends Application {
             e.printStackTrace();
         }
     }
+
+    private String getBindIp() {
+        for (String arg : getParameters().getRaw()) {
+            if (arg.startsWith("--bind.ip=")) {
+                return arg.split("=")[1];
+            }
+        }
+        throw new RuntimeException("Thiếu --bind.ip");
+    }
+
 }
 
