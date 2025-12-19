@@ -69,38 +69,34 @@ public class P2PNode {
             if (!exists) {
                 onlinePeers.add(user);
                 listPeerRes.add(user);
+                defNeighbor();
             }
         }
     }
 
     public void defNeighbor() {
-        System.out.println("def");
-        scheduler.schedule(() -> {
-            User prevPeer = listPeerRes.lower(localUser);
-            User succPeer = listPeerRes.higher(localUser);
-            localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
-            localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
             try {
+                User prevPeer = listPeerRes.lower(localUser);
+                User succPeer = listPeerRes.higher(localUser);
                 if(prevPeer != null)   {
+                    localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
+                    System.out.println("pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
                     IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                    stubPrev.notifyAsPredecessor(localUser);
+                    stubPrev.notifyAsSuccessor(localUser);
                 }
                 if(succPeer != null) {
+                    localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
+                    System.out.println("succ peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
                     IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                    stubSucc.notifyAsSuccessor(localUser);
+                    stubSucc.notifyAsPredecessor(localUser);
                 }
-
-             System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-             System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
-
+                System.out.println("def " +  localUser.getNeighbors().size());
             }catch (Exception e) {
              e.printStackTrace();
          }
-        }, 3, TimeUnit.SECONDS);
     }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
         start();
-        defNeighbor();
         synchronized (onlinePeers) {
             onlinePeers.clear();
         }
@@ -138,9 +134,6 @@ public class P2PNode {
                         IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
                         stubSucc.notifyAsSuccessor(prevPeer);
                     }
-
-                    System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-                    System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
                 }catch (Exception e) {
                     e.printStackTrace();
                 }

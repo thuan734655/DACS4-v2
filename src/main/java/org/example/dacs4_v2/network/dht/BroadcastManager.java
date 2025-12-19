@@ -1,6 +1,7 @@
 package org.example.dacs4_v2.network.dht;
 
 import org.example.dacs4_v2.models.*;
+import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
@@ -90,8 +91,16 @@ public class BroadcastManager {
                 User originConfig = (User) msg.payload.get("originConfig");
                 if (originConfig != null) {
                     try {
+                        // gan peer nguoi khac
+                        P2PContext ctx = P2PContext.getInstance();
+                        if (ctx.getNode() != null) {
+                            System.out.println("them peer " + originConfig.getName());
+                            ctx.getNode().addOnlinePeer(originConfig);
+                        }
+                        // gui thong tin cua minh cho peer khac
                         IGoGameService stub = GoGameServiceImpl.getStub(originConfig);
                         stub.onOnlinePeerDiscovered(localUser);
+
                     } catch (Exception e) {
                         e.printStackTrace();
                     }

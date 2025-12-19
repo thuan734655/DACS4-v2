@@ -89,6 +89,11 @@ public class DashboardController {
         }, "dashboard-online-refresh").start();
     }
 
+    @FXML
+    private void onRefreshOnline() {
+        refreshOnlinePlayers();
+    }
+
     private void updatePlayersUI(List<User> players) {
         if (playersContainer == null) return;
         playersContainer.getChildren().clear();

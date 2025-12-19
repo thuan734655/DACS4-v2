@@ -98,7 +98,13 @@
                 <!-- Online players list -->
                 <VBox spacing="12">
                     <children>
-                        <Label text="Online Players" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+                        <HBox alignment="CENTER_LEFT" spacing="8">
+                            <children>
+                                <Label text="Online Players" style="-fx-font-size: 18; -fx-font-weight: bold;"/>
+                                <Pane HBox.hgrow="ALWAYS"/>
+                                <Button text="Refresh" onAction="#onRefreshOnline"/>
+                            </children>
+                        </HBox>
                         <ScrollPane prefHeight="220" fitToWidth="true" hbarPolicy="NEVER">
                             <content>
                                 <VBox fx:id="playersContainer" spacing="8"/>
