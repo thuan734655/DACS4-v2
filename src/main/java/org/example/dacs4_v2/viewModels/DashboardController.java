@@ -41,6 +41,13 @@ public class DashboardController {
             lblUserInfo.setText(name + " (" + peerId + ")");
         }
 
+        try {
+            P2PNode node = P2PContext.getInstance().getOrCreateNode();
+            node.start();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         refreshOnlinePlayers();
     }
 

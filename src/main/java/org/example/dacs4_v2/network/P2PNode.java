@@ -3,34 +3,22 @@ package org.example.dacs4_v2.network;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.dht.BroadcastManager;
-import org.example.dacs4_v2.network.dht.DHTNode;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
-import org.example.dacs4_v2.test.TestPeerContext;
 import org.example.dacs4_v2.utils.GetIPV4;
 
-import java.net.*;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 public class P2PNode {
-
     private User localUser;
-    private DHTNode dhtNode;
     private BroadcastManager broadcastManager;
     private IGoGameService service;
     private Registry registry;
 
-    private final List<User> onlinePeers = Collections.synchronizedList(new ArrayList<>());
-    private final TreeSet<User> listPeerRes = new TreeSet<>(  Comparator.comparing(User::getUserId));
+    private final Set<User> listPeerRes = new HashSet<>();
     private boolean started = false;
-
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
 
     public synchronized void start() throws Exception {
         if (started) return;
@@ -56,62 +44,105 @@ public class P2PNode {
         this.registry = LocateRegistry.createRegistry(rmiPort);
         registry.rebind(serviceName, service);
 
-        this.dhtNode = new DHTNode(localUser);
-        this.broadcastManager = new BroadcastManager(localUser, dhtNode);
+        this.broadcastManager = new BroadcastManager(localUser);
 
         started = true;
     }
 
-    public void addOnlinePeer(User user) {
-        if (user == null) return;
-        synchronized (onlinePeers) {
-            boolean exists = onlinePeers.stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
-            if (!exists) {
-                onlinePeers.add(user);
-                listPeerRes.add(user);
-                defNeighbor();
+    public void defNeighbor(User newPeer) {
+            int resultCompare  = localUser.getName().compareTo(newPeer.getName());
+            if(resultCompare > 0) { // local user lon hon
+                defPrevPeer(newPeer);
             }
-        }
+            else {
+                defSuccPeer(newPeer);
+            }
     }
+    public void defPrevPeer (User newPeer) {
+      try {
+          User prevPeer = localUser.getNeighbor(NeighborType.PREDECESSOR);
+          if(prevPeer == null) {
+              localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
+              System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
 
-    public void defNeighbor() {
-            try {
-                User prevPeer = listPeerRes.lower(localUser);
-                User succPeer = listPeerRes.higher(localUser);
-                if(prevPeer != null)   {
-                    localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
-                    System.out.println("pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
-                    IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                    stubPrev.notifyAsSuccessor(localUser);
+              //set phia peer doi phuong
+              IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
+              stubPrev.notifyAsSuccessor(localUser);
+          }
+          else {
+              int resultCompareID = prevPeer.getUserId().compareTo(newPeer.getUserId());
+              switch (resultCompareID) {
+                  case -1: {
+                      localUser.setNeighbor(NeighborType.PREDECESSOR,newPeer);
+                      System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
+
+                      IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
+                      stubPrev.notifyAsSuccessor(localUser);
+                      break;
+                  }
+                  case 1: {
+                      System.out.println("peer mới " + newPeer.getName() + " nho hon prev peer hien tai");
+                      break;
+                  }
+                  default:
+                      System.out.println("2 peer trung nhau");
+              }
+          }
+      }catch (Exception e) {
+          e.printStackTrace();
+      }
+    }
+    public void defSuccPeer (User newPeer) {
+        try {
+            User succPeer = localUser.getNeighbor(NeighborType.SUCCESSOR);
+            if(succPeer == null) {
+                localUser.setNeighbor(NeighborType.SUCCESSOR, succPeer);
+                System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
+
+                //set phia peer doi phuong
+                IGoGameService stubPrev = GoGameServiceImpl.getStub(succPeer);
+                stubPrev.notifyAsPredecessor(localUser);
+            }
+            else {
+                int resultCompareID = succPeer.getUserId().compareTo(newPeer.getUserId());
+                switch (resultCompareID) {
+                    case -1: {
+                        localUser.setNeighbor(NeighborType.SUCCESSOR,newPeer);
+                        System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
+
+                        IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
+                        stubPrev.notifyAsPredecessor(localUser);
+                        break;
+                    }
+                    case 1: {
+                        System.out.println("peer mới " + newPeer.getName() + " nho hon prev peer hien tai");
+                        break;
+                    }
+                    default:
+                        System.out.println("2 peer trung nhau");
                 }
-                if(succPeer != null) {
-                    localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
-                    System.out.println("succ peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
-                    IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                    stubSucc.notifyAsPredecessor(localUser);
-                }
-                System.out.println("def " +  localUser.getNeighbors().size());
-            }catch (Exception e) {
-             e.printStackTrace();
-         }
+            }
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
     }
     public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
-        start();
-        synchronized (onlinePeers) {
-            onlinePeers.clear();
+        synchronized (listPeerRes) {
+            listPeerRes.clear();
         }
-        BroadcastMessage msg = new BroadcastMessage("DISCOVER_ONLINE", localUser.getUserId());
+        BroadcastMessage msg = new BroadcastMessage("ASK_ONLINE", localUser.getUserId());
+        msg.payload.put("requestId", msg.id);
         msg.payload.put("originConfig", localUser);
         System.out.println("bat dau....");
-        broadcastManager.broadcast(msg);
+        broadcastManager.SendMessage(msg);
 
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
 
-        synchronized (onlinePeers) {
-            return new ArrayList<>(onlinePeers);
+        synchronized (listPeerRes) {
+            return new ArrayList<>(listPeerRes);
         }
     }
 
@@ -123,8 +154,8 @@ public class P2PNode {
         try {
             if (broadcastManager != null) {
                 broadcastManager.close();
-                User prevPeer = listPeerRes.lower(localUser);
-                User succPeer = listPeerRes.higher(localUser);
+                User prevPeer = localUser.getNeighbor(NeighborType.PREDECESSOR);
+                User succPeer = localUser.getNeighbor(NeighborType.SUCCESSOR);
                 try { // gan lai peer
                     if(prevPeer != null)   {
                         IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);

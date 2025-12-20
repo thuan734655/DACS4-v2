@@ -110,7 +110,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     public void onOnlinePeerDiscovered(User user) throws RemoteException {
         P2PContext ctx = P2PContext.getInstance();
         if (ctx.getNode() != null) {
-            ctx.getNode().addOnlinePeer(user);
+            ctx.getNode().defNeighbor(user);
         }
     }
 
