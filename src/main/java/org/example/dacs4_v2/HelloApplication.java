@@ -66,6 +66,9 @@ public class HelloApplication extends Application {
             return;
         }
         try {
+            if ("game.fxml".equals(fxmlName)) {
+                viewCache.remove(fxmlName);
+            }
             Parent root = loadFXML(fxmlName);
             Scene scene = primaryStage.getScene();
             if (scene == null) {

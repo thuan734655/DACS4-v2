@@ -7,11 +7,13 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.Button;
 import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.Moves;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 public class GameController {
@@ -112,14 +114,24 @@ public class GameController {
         String playerColor = isBlack ? "BLACK" : "WHITE";
         Moves move = new Moves(order, playerColor, x, y, game.getGameId());
 
+        game.addMove(move);
+        GameHistoryStorage.upsert(game);
+
         redrawBoard();
 
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                IGoGameService service = node.getService();
-                if (service != null) {
-                    service.submitMove(move, order);
+                String myId = node.getLocalUser() != null ? node.getLocalUser().getUserId() : null;
+                org.example.dacs4_v2.models.User rival = null;
+                if (myId != null && myId.equals(game.getUserId())) {
+                    rival = game.getRivalUser();
+                } else {
+                    rival = game.getHostUser();
+                }
+                if (rival != null) {
+                    IGoGameService remote = GoGameServiceImpl.getStub(rival);
+                    remote.submitMove(move, order);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

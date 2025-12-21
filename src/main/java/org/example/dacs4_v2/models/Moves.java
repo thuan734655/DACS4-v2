@@ -1,6 +1,10 @@
 package org.example.dacs4_v2.models;
 
-public class Moves {
+import java.io.Serializable;
+
+public class Moves implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private int order;
     private String player;
     private int x;

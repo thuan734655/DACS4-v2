@@ -7,10 +7,13 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
+import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.models.Game;
+import org.example.dacs4_v2.models.GameStatus;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.security.SecureRandom;
@@ -103,6 +106,10 @@ public class CreateRoomController {
             String rivalId = opponentPeerId;
 
             Game game = new Game(gameId, hostPeerId, userId, rivalId, boardSize, komiInt, name);
+            game.setStatus(GameStatus.INVITE_SENT);
+            game.setCreatedAt(System.currentTimeMillis());
+            User hostSnapshot = new User(local.getHost(), local.getName(), local.getPort(), local.getRank(), local.getServiceName(), local.getUserId());
+            game.setHostUser(hostSnapshot);
 
             // Lookup đối thủ qua DHT
             IGoGameService localService = node.getService();
@@ -115,6 +122,13 @@ public class CreateRoomController {
             if (targetConfig == null) {
                 setStatus("Opponent not found or offline");
                 return;
+            }
+            User rivalSnapshot = new User(targetConfig.getHost(), targetConfig.getName(), targetConfig.getPort(), targetConfig.getRank(), targetConfig.getServiceName(), targetConfig.getUserId());
+            game.setRivalUser(rivalSnapshot);
+            GameHistoryStorage.upsert(game);
+
+            if (localService instanceof GoGameServiceImpl impl) {
+                impl.registerOutgoingGame(game);
             }
 
             IGoGameService targetStub = node.getService();

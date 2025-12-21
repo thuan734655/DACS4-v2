@@ -18,6 +18,7 @@ import javafx.application.Platform;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
@@ -26,6 +27,13 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     private final User localUser;
     private final ConcurrentHashMap<String, Game> activeGames = new ConcurrentHashMap<>();
     private final List<Game> gameHistory = new ArrayList<>();
+
+    private static User snapshotUser(User u) {
+        if (u == null) {
+            return null;
+        }
+        return new User(u.getHost(), u.getName(), u.getPort(), u.getRank(), u.getServiceName(), u.getUserId());
+    }
 
     private static final int KEY_BITS = 160;
     private static final BigInteger KEYSPACE_MOD = BigInteger.ONE.shiftLeft(KEY_BITS);
@@ -102,7 +110,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             return BigInteger.ZERO;
         }
     }
-    // (a,b] quyet dinh xem dung hay chua
+
     private static boolean inOpenClosedInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;
@@ -116,7 +124,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
         return true;
     }
-    // (a,b) quyet dinh xem co tiep tuc duyet nua khong
+
     private static boolean inOpenOpenInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;
@@ -136,6 +144,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         synchronized (fingerTable) {
             for (int i = fingerTable.size() - 1; i >= 0; i--) {
                 User u = fingerTable.get(i);
+
                 if (u == null) {
                     continue;
                 }
@@ -152,11 +161,28 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return localUser.getNeighbor(NeighborType.SUCCESSOR);
     }
 
+    public void registerOutgoingGame(Game game) {
+        if (game == null || game.getGameId() == null) {
+            return;
+        }
+        activeGames.put(game.getGameId(), game);
+        GameHistoryStorage.upsert(game);
+    }
+
     @Override
     public void inviteToGame(Game game) throws RemoteException {
-        System.out.println("[RMI] Nhận lời mời vào game: " + game.getGameId());
-        // Lưu game, update UI...
-        activeGames.put(game.getGameId(), game);
+        System.out.println("[RMI] Nhận lời mời vào game: " + (game != null ? game.getGameId() : "null"));
+        if (game != null) {
+            game.setStatus(GameStatus.INVITE_RECEIVED);
+            if (game.getCreatedAt() <= 0) {
+                game.setCreatedAt(System.currentTimeMillis());
+            }
+            if (game.getRivalUser() == null) {
+                game.setRivalUser(snapshotUser(localUser));
+            }
+            activeGames.put(game.getGameId(), game);
+            GameHistoryStorage.upsert(game);
+        }
 
         Platform.runLater(() -> {
             String title = "Game invite";
@@ -171,13 +197,135 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             alert.showAndWait().ifPresent(btn -> {
                 if (btn == ButtonType.OK) {
                     System.out.println("[UI] User accepted invite for game " + game.getGameId());
-                    GameContext.getInstance().setCurrentGame(game);
-                    HelloApplication.navigateTo("game.fxml");
+                    try {
+                        game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
+                        game.setAcceptedAt(System.currentTimeMillis());
+                        GameHistoryStorage.upsert(game);
+
+                        User host = game.getHostUser();
+                        if (host != null) {
+                            IGoGameService hostStub = getStub(host);
+                            hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), true);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
                 } else {
                     System.out.println("[UI] User declined invite for game " + game.getGameId());
-                    activeGames.remove(game.getGameId());
+                    try {
+                        game.setStatus(GameStatus.DECLINED);
+                        GameHistoryStorage.upsert(game);
+
+                        User host = game.getHostUser();
+                        if (host != null) {
+                            IGoGameService hostStub = getStub(host);
+                            hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), false);
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    } finally {
+                        activeGames.remove(game.getGameId());
+                    }
                 }
             });
+        });
+    }
+
+    @Override
+    public void onInviteResponse(String gameId, User responder, boolean accepted) throws RemoteException {
+        Game game = gameId != null ? activeGames.get(gameId) : null;
+        if (game == null) {
+            return;
+        }
+
+        User responderSnapshot = snapshotUser(responder);
+
+        if (!accepted) {
+            game.setStatus(GameStatus.DECLINED);
+            game.setEndedAt(System.currentTimeMillis());
+            if (responderSnapshot != null) {
+                game.setRivalUser(responderSnapshot);
+            }
+            GameHistoryStorage.upsert(game);
+            activeGames.remove(gameId);
+
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined invite for game " + gameId, ButtonType.OK);
+                alert.setTitle("Invite declined");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+            });
+            return;
+        }
+
+        game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
+        game.setAcceptedAt(System.currentTimeMillis());
+        if (responderSnapshot != null) {
+            game.setRivalUser(responderSnapshot);
+        }
+        GameHistoryStorage.upsert(game);
+
+        Platform.runLater(() -> {
+            String msg = "Opponent accepted invite for game " + gameId + ". Start now?";
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+            alert.setTitle("Start game");
+            alert.setHeaderText(null);
+            alert.showAndWait().ifPresent(btn -> {
+                boolean start = btn == ButtonType.OK;
+                try {
+                    if (start) {
+                        game.setStatus(GameStatus.PLAYING);
+                        game.setStartedAt(System.currentTimeMillis());
+                        GameHistoryStorage.upsert(game);
+                        GameContext.getInstance().setCurrentGame(game);
+                        HelloApplication.navigateTo("game.fxml");
+                    } else {
+                        game.setStatus(GameStatus.CANCELED);
+                        game.setEndedAt(System.currentTimeMillis());
+                        GameHistoryStorage.upsert(game);
+                        activeGames.remove(gameId);
+                    }
+
+                    if (responderSnapshot != null) {
+                        IGoGameService stub = getStub(responderSnapshot);
+                        stub.onHostDecision(gameId, start);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+        });
+    }
+
+    @Override
+    public void onHostDecision(String gameId, boolean start) throws RemoteException {
+        Game game = gameId != null ? activeGames.get(gameId) : null;
+        if (game == null) {
+            return;
+        }
+
+        if (!start) {
+            game.setStatus(GameStatus.CANCELED);
+            game.setEndedAt(System.currentTimeMillis());
+            GameHistoryStorage.upsert(game);
+            activeGames.remove(gameId);
+
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Host canceled invite for game " + gameId, ButtonType.OK);
+                alert.setTitle("Invite canceled");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+            });
+            return;
+        }
+
+        game.setStatus(GameStatus.PLAYING);
+        game.setStartedAt(System.currentTimeMillis());
+        GameHistoryStorage.upsert(game);
+
+        Platform.runLater(() -> {
+            GameContext.getInstance().setCurrentGame(game);
+            HelloApplication.navigateTo("game.fxml");
         });
     }
 
@@ -202,6 +350,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             System.out.println("[RMI] Nhận nước đi: " + move);
             GameContext.getInstance().setCurrentGame(game);
             GameContext.getInstance().notifyMoveReceived(move);
+            GameHistoryStorage.upsert(game);
             // Gửi ACK
             // clientService.moveAck(seqNo);
         }
@@ -230,8 +379,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
     @Override
     public List<Game> getGameHistory(int limit) throws RemoteException {
-        int n = Math.min(limit, gameHistory.size());
-        return new ArrayList<>(gameHistory.subList(0, n));
+        return GameHistoryStorage.loadHistory(limit);
     }
 
     @Override

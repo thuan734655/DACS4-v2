@@ -10,6 +10,8 @@ import org.example.dacs4_v2.models.Moves;
 
 public interface IGoGameService extends Remote {
     void inviteToGame(Game game) throws RemoteException;
+    void onInviteResponse(String gameId, User responder, boolean accepted) throws RemoteException;
+    void onHostDecision(String gameId, boolean start) throws RemoteException;
     void joinRequest(User requester, String gameId) throws RemoteException;
     void submitMove(Moves move, long seqNo) throws RemoteException;
     void moveAck(long seqNo) throws RemoteException;
