@@ -64,6 +64,9 @@ public class P2PNode {
         this.localUser.setRank(rank);
 
         this.service = new GoGameServiceImpl(localUser);
+        if (this.service instanceof GoGameServiceImpl) {
+            ((GoGameServiceImpl) this.service).startChordLite();
+        }
         this.registry = LocateRegistry.createRegistry(rmiPort);
         registry.rebind(serviceName, service);
 
@@ -246,6 +249,9 @@ public class P2PNode {
 
         Registry reg = this.registry;
         IGoGameService svc = this.service;
+        if (svc instanceof GoGameServiceImpl) {
+            ((GoGameServiceImpl) svc).stopChordLite();
+        }
         if (reg != null && me != null) {
             try {
                 String serviceName = me.getServiceName();

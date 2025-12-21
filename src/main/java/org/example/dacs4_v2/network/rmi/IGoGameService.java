@@ -2,6 +2,7 @@ package org.example.dacs4_v2.network.rmi;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.math.BigInteger;
 import java.util.List;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.User;
@@ -21,4 +22,5 @@ public interface IGoGameService extends Remote {
     List<Game> getGameHistory(int limit) throws RemoteException;
     void onOnlinePeerDiscovered(User user) throws RemoteException;
     User findPeerById(String targetPeerId, int maxHops) throws RemoteException;
+    User findSuccessorByHash(BigInteger targetHash, int maxHops) throws RemoteException;
 }
