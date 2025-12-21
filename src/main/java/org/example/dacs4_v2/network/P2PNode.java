@@ -137,6 +137,7 @@ public class P2PNode {
         msg.payload.put("requestId", msg.id);
         msg.payload.put("originConfig", localUser);
         msg.payload.put("message", "goi tin cua peer: " + localUser.getName());
+        msg.originatorPeerId = localUser.getUserId();
 
         System.out.println("bat dau....");
         broadcastManager.SendMessage(msg);

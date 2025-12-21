@@ -88,6 +88,7 @@ public class BroadcastManager {
     }
 
     private void startWorkers() {
+        System.out.println("start worker...");
         for (int i = 0; i < 10; i++) {
             workerPool.submit(() -> {
                 while (!Thread.currentThread().isInterrupted()) {
