@@ -30,10 +30,6 @@ public class BroadcastManager {
         this.localUser = user;
 
         int port = 9876;
-        NetworkRuntimeConfig cfg = P2PContext.getInstance().getRuntimeConfig();
-        if (cfg != null && cfg.getMulticastPort() != null) {
-            port = cfg.getMulticastPort();
-        }
         this.MULTICAST_PORT = port;
         try {
             this.group = InetAddress.getByName("239.255.0.1");

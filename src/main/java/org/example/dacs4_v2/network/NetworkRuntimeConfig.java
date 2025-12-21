@@ -47,7 +47,7 @@ public class NetworkRuntimeConfig {
                 String value = s.substring(eq + 1).trim();
                 if (key.isEmpty() || value.isEmpty()) continue;
 
-                if ("nd.ip".equalsIgnoreCase(key)) {
+                if ("bind.ip".equalsIgnoreCase(key)) {
                     ip = value;
                 } else if ("bind.port".equalsIgnoreCase(key)) {
                     multicastPort = parseIntOrNull(value);

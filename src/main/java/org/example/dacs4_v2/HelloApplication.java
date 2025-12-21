@@ -26,6 +26,7 @@ public class HelloApplication extends Application {
 
         NetworkRuntimeConfig cfg = NetworkRuntimeConfig.fromArgs(getParameters().getRaw());
         P2PContext.getInstance().setRuntimeConfig(cfg);
+        System.out.println(cfg + "cfg");
 
         // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
         File userFile = new File("data/user.json");

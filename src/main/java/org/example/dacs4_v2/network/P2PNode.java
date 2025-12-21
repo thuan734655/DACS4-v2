@@ -43,12 +43,14 @@ public class P2PNode {
         }
 
         String hostIp;
+
         if (cfg != null && cfg.getIp() != null && !cfg.getIp().isBlank()) {
             hostIp = cfg.getIp();
+
         } else {
             hostIp = GetIPV4.getLocalIp();
         }
-        System.out.println(hostIp);
+        System.out.println(hostIp + "host ");
 
         System.setProperty("java.rmi.server.hostname", hostIp);
 
@@ -197,6 +199,8 @@ public class P2PNode {
                 stubCurrent.notifyAsSuccessor(localUser);
                 IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
                 stubSucc.notifyAsPredecessor(localUser);
+                System.out.println("da cap nhat prev peer cua " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
+                System.out.println("da cap nhat prev succ cua " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
                 return;
             }
 
