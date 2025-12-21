@@ -71,84 +71,6 @@ public class P2PNode {
 
         started = true;
     }
-
-    public void defNeighbor(User newPeer) {
-        int resultCompare  = localUser.getName().compareTo(newPeer.getName());
-        if(resultCompare > 0) { // local user lon hon
-            defPrevPeer(newPeer);
-        }
-        else {
-            defSuccPeer(newPeer);
-        }
-    }
-    public void defPrevPeer (User newPeer) {
-      try {
-          User prevPeer = localUser.getNeighbor(NeighborType.PREDECESSOR);
-          if(prevPeer == null) {
-              localUser.setNeighbor(NeighborType.PREDECESSOR, newPeer);
-              System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
-
-              //set phia peer doi phuong
-              IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
-              stubPrev.notifyAsSuccessor(localUser);
-          }
-          else {
-              int resultCompareID = prevPeer.getUserId().compareTo(newPeer.getUserId());
-              switch (resultCompareID) {
-                  case -1: {
-                      localUser.setNeighbor(NeighborType.PREDECESSOR,newPeer);
-                      System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
-
-                      IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
-                      stubPrev.notifyAsSuccessor(localUser);
-                      break;
-                  }
-                  case 1: {
-                      System.out.println("peer mới " + newPeer.getName() + " nho hon prev peer hien tai");
-                      break;
-                  }
-                  default:
-                      System.out.println("2 peer trung nhau");
-              }
-          }
-      }catch (Exception e) {
-          e.printStackTrace();
-      }
-    }
-    public void defSuccPeer (User newPeer) {
-        try {
-            User succPeer = localUser.getNeighbor(NeighborType.SUCCESSOR);
-            if(succPeer == null) {
-                localUser.setNeighbor(NeighborType.SUCCESSOR, newPeer);
-                System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
-
-                //set phia peer doi phuong
-                IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
-                stubPrev.notifyAsPredecessor(localUser);
-            }
-            else {
-                int resultCompareID = succPeer.getUserId().compareTo(newPeer.getUserId());
-                switch (resultCompareID) {
-                    case -1: {
-                        localUser.setNeighbor(NeighborType.SUCCESSOR,newPeer);
-                        System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
-
-                        IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
-                        stubPrev.notifyAsPredecessor(localUser);
-                        break;
-                    }
-                    case 1: {
-                        System.out.println("peer mới " + newPeer.getName() + " nho hon prev peer hien tai");
-                        break;
-                    }
-                    default:
-                        System.out.println("2 peer trung nhau");
-                }
-            }
-        }catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
     public void getPeerWhenJoinNet() throws Exception {
         synchronized (lock) {
             fastestOnlinePeer = null;
@@ -160,7 +82,6 @@ public class P2PNode {
         msg.payload.put("message", "goi tin cua peer: " + localUser.getName());
         msg.originatorPeerId = localUser.getUserId();
 
-        System.out.println("bat dau....");
         broadcastManager.SendMessage(msg);
     }
 
@@ -218,6 +139,9 @@ public class P2PNode {
         IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
         stubEntry.notifyAsSuccessor(localUser);
         stubEntry.notifyAsPredecessor(localUser);
+
+        System.out.println("da cap nhat prev peer cua " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
+        System.out.println("da cap nhat prev succ cua " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
     }
 
     private BigInteger hashKey(String userId) throws Exception {

@@ -50,7 +50,6 @@ public class BroadcastManager {
             } catch (Exception ignored) {}
 
             if (nif != null) {
-                System.out.println(nif + " nif");
                 this.socket.setNetworkInterface(nif);
                 this.socket.joinGroup(new InetSocketAddress(group, MULTICAST_PORT), nif);
             } else {
@@ -73,13 +72,6 @@ public class BroadcastManager {
                     socket.receive(packet);
                     Object obj = deserialize(packet.getData(), packet.getLength());
 
-                    String senderIp = packet.getAddress().getHostAddress();
-                    System.out.println("da nhan goi tin");
-                    if (senderIp.equals(localUser.getHost())) {
-                        System.out.println(" skip");
-                        continue;
-                    }
-
                     if (obj instanceof BroadcastMessage) {
                         BroadcastMessage msg = (BroadcastMessage) obj;
                         if (msg.originatorPeerId != null && msg.originatorPeerId.equals(localUser.getUserId())) {
@@ -100,7 +92,6 @@ public class BroadcastManager {
     }
 
     private void startWorkers() {
-        System.out.println("start worker...");
         for (int i = 0; i < 10; i++) {
             workerPool.submit(() -> {
                 while (!Thread.currentThread().isInterrupted()) {
@@ -121,7 +112,6 @@ public class BroadcastManager {
             byte[] data = serialize(msg);
             DatagramPacket datagramPacket = new DatagramPacket(data, data.length, group, MULTICAST_PORT);
             socket.send(datagramPacket);
-            System.out.println("gui broadcast " + msg.type);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -130,13 +120,10 @@ public class BroadcastManager {
     private void handleMulticastLogic(BroadcastMessage msg) {
         switch (msg.type) {
             case "ASK_ONLINE": {
-                System.out.println("goi tin ask");
                 handleAskOnline(msg);
-
                 break;
             }
             case "CLEAR_ONLINE": {
-                System.out.println("goi tin clear");
                 handleClearOnline(msg);
                 break;
             }
@@ -147,32 +134,10 @@ public class BroadcastManager {
                 }
                 break;
             }
-            case "DISCOVER_ONLINE": {
-                System.out.println("su ly broadcast");
-                User originConfig = (User) msg.payload.get("originConfig");
-                if (originConfig != null) {
-                    try {
-                        // gan peer nguoi khac
-                        P2PContext ctx = P2PContext.getInstance();
-                        if (ctx.getNode() != null) {
-                            System.out.println("them peer " + originConfig.getName());
-                            ctx.getNode().defNeighbor(originConfig);
-                        }
-                        // gui thong tin cua minh cho peer khac
-                        IGoGameService stub = GoGameServiceImpl.getStub(originConfig);
-                        stub.onOnlinePeerDiscovered(localUser);
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                break;
-            }
         }
     }
 
     private void handleAskOnline(BroadcastMessage msg) {
-        System.out.println(msg.payload.get("message") );
         String requestIdRaw = (String) msg.payload.get("requestId");
         String requestId = (requestIdRaw == null || requestIdRaw.isBlank()) ? msg.id : requestIdRaw;
         final String reqId = requestId;
@@ -220,7 +185,6 @@ public class BroadcastManager {
     }
 
     private void handleClearOnline(BroadcastMessage msg) {
-        System.out.println(msg.payload.get("message") );
         String requestId = (String) msg.payload.get("requestId");
         if (requestId == null || requestId.isBlank()) {
             requestId = msg.id;
@@ -229,8 +193,6 @@ public class BroadcastManager {
 
         AtomicBoolean cleared = clearedByRequestId.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
         cleared.set(true);
-
-        System.out.println("clear req khong gui goi tin ve nua");
 
         ScheduledFuture<?> future = pendingReplyByRequestId.remove(requestId);
         if (future != null) {
