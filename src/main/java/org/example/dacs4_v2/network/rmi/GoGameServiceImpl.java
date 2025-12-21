@@ -29,7 +29,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
     private static final int KEY_BITS = 160;
     private static final BigInteger KEYSPACE_MOD = BigInteger.ONE.shiftLeft(KEY_BITS);
-    private static final int FINGER_TABLE_SIZE = 32;
+    private static final int FINGER_TABLE_SIZE = 16;
     private static final int FIX_FINGERS_INTERVAL_MS = 1200;
 
     private final List<User> fingerTable = new ArrayList<>(FINGER_TABLE_SIZE);
@@ -102,7 +102,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             return BigInteger.ZERO;
         }
     }
-
+    // (a,b] quyet dinh xem dung hay chua
     private static boolean inOpenClosedInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;
@@ -116,7 +116,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
         return true;
     }
-
+    // (a,b) quyet dinh xem co tiep tuc duyet nua khong
     private static boolean inOpenOpenInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;

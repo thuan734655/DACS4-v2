@@ -2,14 +2,23 @@ package org.example.dacs4_v2.viewModels;
 
 import javafx.application.Platform;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
 import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.viewModels.CreateRoomController;
 
 import java.util.List;
 
@@ -155,9 +164,16 @@ public class DashboardController {
         VBox infoBox = new VBox(4);
         infoBox.getChildren().addAll(nameRow, rankLabel);
 
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        Button inviteBtn = new Button("Invite");
+        inviteBtn.setStyle("-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999; -fx-padding: 6 14;");
+        inviteBtn.setOnAction(e -> onInviteNeighbor(predecessor));
+
         HBox card = new HBox(12);
         card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
-        card.getChildren().addAll(avatarBox, infoBox);
+        card.getChildren().addAll(avatarBox, infoBox, spacer, inviteBtn);
 
         if (predecessor) {
             predecessorAvatarLabel = avatar;
@@ -169,6 +185,46 @@ public class DashboardController {
             successorRankLabel = rankLabel;
         }
         return card;
+    }
+
+    private void onInviteNeighbor(boolean predecessor) {
+        try {
+            P2PNode node = P2PContext.getInstance().getNode();
+            if (node == null) {
+                return;
+            }
+            User me = node.getLocalUser();
+            User neighbor = predecessor ? node.getPredecessor() : node.getSuccessor();
+            if (me == null || neighbor == null || neighbor.getUserId() == null) {
+                return;
+            }
+            if (me.getUserId() != null && me.getUserId().equals(neighbor.getUserId())) {
+                return;
+            }
+            openCreateRoomDialog(neighbor.getUserId());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    private void openCreateRoomDialog(String opponentPeerId) {
+        try {
+            FXMLLoader loader = new FXMLLoader(HelloApplication.class.getResource("create_room.fxml"));
+            Parent root = loader.load();
+
+            CreateRoomController controller = loader.getController();
+            if (controller != null) {
+                controller.prefillOpponentPeerId(opponentPeerId, true);
+            }
+
+            Stage dialog = new Stage();
+            dialog.initModality(Modality.APPLICATION_MODAL);
+            dialog.setTitle("Invite Game");
+            dialog.setScene(new Scene(root));
+            dialog.showAndWait();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void applyNeighborToCard(User u, Label avatarLabel, Label nameLabel, Label rankLabel) {

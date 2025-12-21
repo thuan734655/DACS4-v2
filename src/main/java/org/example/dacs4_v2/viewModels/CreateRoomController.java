@@ -34,6 +34,14 @@ public class CreateRoomController {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    public void prefillOpponentPeerId(String peerId, boolean lockField) {
+        if (txtOpponentPeerId == null) {
+            return;
+        }
+        txtOpponentPeerId.setText(peerId != null ? peerId : "");
+        txtOpponentPeerId.setDisable(lockField);
+    }
+
     @FXML
     public void initialize() {
         if (cbBoardSize != null && cbBoardSize.getItems().isEmpty()) {
