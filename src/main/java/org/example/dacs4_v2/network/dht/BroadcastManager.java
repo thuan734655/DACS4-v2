@@ -2,6 +2,7 @@ package org.example.dacs4_v2.network.dht;
 
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
+import org.example.dacs4_v2.network.NetworkRuntimeConfig;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
@@ -12,10 +13,11 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BroadcastManager {
-    private final int MULTICAST_PORT = 9876;
+    private final int MULTICAST_PORT;
     private  MulticastSocket socket = null;
     private final User localUser;
     private InetAddress group;
+
     private final BlockingQueue<BroadcastMessage> messageQueue = new LinkedBlockingQueue<>(1000);
     private final ExecutorService workerPool = Executors.newFixedThreadPool(10);
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
@@ -26,11 +28,19 @@ public class BroadcastManager {
 
     public BroadcastManager(User user) {
         this.localUser = user;
+
+        int port = 9876;
+        NetworkRuntimeConfig cfg = P2PContext.getInstance().getRuntimeConfig();
+        if (cfg != null && cfg.getMulticastPort() != null) {
+            port = cfg.getMulticastPort();
+        }
+        this.MULTICAST_PORT = port;
         try {
             this.group = InetAddress.getByName("239.255.0.1");
             this.socket = new MulticastSocket(null);
             this.socket.setReuseAddress(true);
             this.socket.bind(new InetSocketAddress(MULTICAST_PORT));
+
             this.socket.setTimeToLive(1);
 
             NetworkInterface nif = null;

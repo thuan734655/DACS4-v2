@@ -5,6 +5,7 @@ public class P2PContext {
     private static final P2PContext INSTANCE = new P2PContext();
 
     private P2PNode node;
+    private NetworkRuntimeConfig runtimeConfig;
 
     private P2PContext() {
     }
@@ -15,6 +16,14 @@ public class P2PContext {
 
     public synchronized P2PNode getNode() {
         return node;
+    }
+
+    public synchronized NetworkRuntimeConfig getRuntimeConfig() {
+        return runtimeConfig;
+    }
+
+    public synchronized void setRuntimeConfig(NetworkRuntimeConfig runtimeConfig) {
+        this.runtimeConfig = runtimeConfig;
     }
 
     public synchronized P2PNode getOrCreateNode() {

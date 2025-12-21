@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.NetworkRuntimeConfig;
 
 public class HelloApplication extends Application {
 
@@ -22,6 +23,10 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws Exception {
         primaryStage = stage;
+
+        NetworkRuntimeConfig cfg = NetworkRuntimeConfig.fromArgs(getParameters().getRaw());
+        P2PContext.getInstance().setRuntimeConfig(cfg);
+
         // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
         File userFile = new File("data/user.json");
         String startFxml = userFile.exists() ? "dashboard.fxml" : "login.fxml";

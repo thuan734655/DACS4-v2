@@ -3,6 +3,7 @@ package org.example.dacs4_v2.network;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.dht.BroadcastManager;
+import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 import org.example.dacs4_v2.utils.GetIPV4;
@@ -36,8 +37,20 @@ public class P2PNode {
         int rank = stored.getRank();
         int rmiPort = 1099;
 
-        String hostIp = GetIPV4.getLocalIp();
+        NetworkRuntimeConfig cfg = P2PContext.getInstance().getRuntimeConfig();
+        if (cfg != null && cfg.getRmiPort() != null) {
+            rmiPort = cfg.getRmiPort();
+        }
+
+        String hostIp;
+        if (cfg != null && cfg.getIp() != null && !cfg.getIp().isBlank()) {
+            hostIp = cfg.getIp();
+        } else {
+            hostIp = GetIPV4.getLocalIp();
+        }
         System.out.println(hostIp);
+
+        System.setProperty("java.rmi.server.hostname", hostIp);
 
         this.localUser = new User(hostIp, name,rmiPort,rank,serviceName, userId);
         this.localUser.setRank(rank);
@@ -155,7 +168,6 @@ public class P2PNode {
             Thread.sleep(20);
         }
         if (entry == null) {
-            // First node: ring of one
             localUser.setNeighbor(NeighborType.PREDECESSOR, localUser);
             localUser.setNeighbor(NeighborType.SUCCESSOR, localUser);
             return;
@@ -179,33 +191,23 @@ public class P2PNode {
             BigInteger s = hashKey(succ.getUserId());
 
             if (between(c, x, s)) {
-                // current -> localUser -> succ
                 localUser.setNeighbor(NeighborType.PREDECESSOR, current);
                 localUser.setNeighbor(NeighborType.SUCCESSOR, succ);
 
-                // Update neighbors on remote peers
                 stubCurrent.notifyAsSuccessor(localUser);
                 IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
                 stubSucc.notifyAsPredecessor(localUser);
-
-                System.out.println("succ cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName() );
-                System.out.println("prev cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName() );
                 return;
             }
 
-            // Advance clockwise
             current = succ;
         }
 
-        // TH: 2 node
         localUser.setNeighbor(NeighborType.PREDECESSOR, entry);
         localUser.setNeighbor(NeighborType.SUCCESSOR, entry);
         IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
         stubEntry.notifyAsSuccessor(localUser);
         stubEntry.notifyAsPredecessor(localUser);
-
-        System.out.println("succ cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName() );
-        System.out.println("prev cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName() );
     }
 
     private BigInteger hashKey(String userId) throws Exception {
@@ -220,14 +222,11 @@ public class P2PNode {
     private boolean between(BigInteger a, BigInteger x, BigInteger b) {
         int ab = a.compareTo(b);
         if (ab < 0) {
-            // a < x <= b
             return a.compareTo(x) < 0 && x.compareTo(b) <= 0;
         }
         if (ab > 0) {
-            //  x > a OR x <= b
             return x.compareTo(a) > 0 || x.compareTo(b) <= 0;
         }
-        // a == b => 1 node
         return true;
     }
 
