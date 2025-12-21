@@ -71,6 +71,15 @@ public class P2PNode {
 
         started = true;
     }
+
+    public User getPredecessor() {
+        return localUser != null ? localUser.getNeighbor(NeighborType.PREDECESSOR) : null;
+    }
+
+    public User getSuccessor() {
+        return localUser != null ? localUser.getNeighbor(NeighborType.SUCCESSOR) : null;
+    }
+
     public void getPeerWhenJoinNet() throws Exception {
         synchronized (lock) {
             fastestOnlinePeer = null;
@@ -99,6 +108,7 @@ public class P2PNode {
         if (entry == null) {
             localUser.setNeighbor(NeighborType.PREDECESSOR, localUser);
             localUser.setNeighbor(NeighborType.SUCCESSOR, localUser);
+            P2PContext.getInstance().requestNeighborUiUpdate();
             return;
         }
         insertIntoRingByHash(entry, 64);
@@ -123,6 +133,8 @@ public class P2PNode {
                 localUser.setNeighbor(NeighborType.PREDECESSOR, current);
                 localUser.setNeighbor(NeighborType.SUCCESSOR, succ);
 
+                P2PContext.getInstance().requestNeighborUiUpdate();
+
                 stubCurrent.notifyAsSuccessor(localUser);
                 IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
                 stubSucc.notifyAsPredecessor(localUser);
@@ -136,6 +148,8 @@ public class P2PNode {
 
         localUser.setNeighbor(NeighborType.PREDECESSOR, entry);
         localUser.setNeighbor(NeighborType.SUCCESSOR, entry);
+
+        P2PContext.getInstance().requestNeighborUiUpdate();
         IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
         stubEntry.notifyAsSuccessor(localUser);
         stubEntry.notifyAsPredecessor(localUser);
@@ -198,7 +212,6 @@ public class P2PNode {
             boolean singleNode = hasRing && prevPeer.getUserId() != null && succPeer.getUserId() != null
                     && prevPeer.getUserId().equals(me.getUserId())
                     && succPeer.getUserId().equals(me.getUserId());
-
             if (hasRing && !singleNode) {
                 try {
                     if (prevPeer.getUserId() != null && !prevPeer.getUserId().equals(me.getUserId())) {
@@ -220,6 +233,8 @@ public class P2PNode {
 
             me.setNeighbor(NeighborType.PREDECESSOR, me);
             me.setNeighbor(NeighborType.SUCCESSOR, me);
+
+            P2PContext.getInstance().requestNeighborUiUpdate();
         }
 
         BroadcastManager bm = this.broadcastManager;

@@ -6,6 +6,7 @@ public class P2PContext {
 
     private P2PNode node;
     private NetworkRuntimeConfig runtimeConfig;
+    private Runnable neighborUiUpdater;
 
     private P2PContext() {
     }
@@ -24,6 +25,20 @@ public class P2PContext {
 
     public synchronized void setRuntimeConfig(NetworkRuntimeConfig runtimeConfig) {
         this.runtimeConfig = runtimeConfig;
+    }
+
+    public synchronized void setNeighborUiUpdater(Runnable neighborUiUpdater) {
+        this.neighborUiUpdater = neighborUiUpdater;
+    }
+
+    public void requestNeighborUiUpdate() {
+        Runnable r;
+        synchronized (this) {
+            r = neighborUiUpdater;
+        }
+        if (r != null) {
+            r.run();
+        }
     }
 
     public synchronized P2PNode getOrCreateNode() {
