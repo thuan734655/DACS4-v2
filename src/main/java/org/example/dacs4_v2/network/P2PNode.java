@@ -188,7 +188,6 @@ public class P2PNode {
                 IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
                 stubSucc.notifyAsPredecessor(localUser);
 
-                System.out.println("SET: da tim thay vi tri dung TH nhieu hon 2 node");
                 System.out.println("succ cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName() );
                 System.out.println("prev cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName() );
                 return;
@@ -205,7 +204,6 @@ public class P2PNode {
         stubEntry.notifyAsSuccessor(localUser);
         stubEntry.notifyAsPredecessor(localUser);
 
-        System.out.println("SET: chi co 2 peer");
         System.out.println("succ cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName() );
         System.out.println("prev cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName() );
     }
