@@ -28,8 +28,25 @@ public class BroadcastManager {
         this.localUser = user;
         try {
             this.group = InetAddress.getByName("239.255.0.1");
-            this.socket = new MulticastSocket(MULTICAST_PORT);
-            this.socket.joinGroup(group);
+            this.socket = new MulticastSocket(null);
+            this.socket.setReuseAddress(true);
+            this.socket.bind(new InetSocketAddress(MULTICAST_PORT));
+            this.socket.setTimeToLive(1);
+
+            NetworkInterface nif = null;
+            try {
+                if (localUser.getHost() != null && !localUser.getHost().isBlank()) {
+                    nif = NetworkInterface.getByInetAddress(InetAddress.getByName(localUser.getHost()));
+                }
+            } catch (Exception ignored) {}
+
+            if (nif != null) {
+                System.out.println(nif + " nif");
+                this.socket.setNetworkInterface(nif);
+                this.socket.joinGroup(new InetSocketAddress(group, MULTICAST_PORT), nif);
+            } else {
+                this.socket.joinGroup(group);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -46,7 +63,13 @@ public class BroadcastManager {
                 try {
                     socket.receive(packet);
                     Object obj = deserialize(packet.getData(), packet.getLength());
-                    InetAddress senderAddr = packet.getAddress();
+
+                    String senderIp = packet.getAddress().getHostAddress();
+                    System.out.println("da nhan goi tin");
+                    if (senderIp.equals(localUser.getHost())) {
+                        System.out.println(" skip");
+                        continue;
+                    }
 
                     if (obj instanceof BroadcastMessage) {
                         BroadcastMessage msg = (BroadcastMessage) obj;
@@ -93,10 +116,13 @@ public class BroadcastManager {
     private void handleMulticastLogic(BroadcastMessage msg) {
         switch (msg.type) {
             case "ASK_ONLINE": {
+                System.out.println("goi tin ask");
                 handleAskOnline(msg);
+
                 break;
             }
             case "CLEAR_ONLINE": {
+                System.out.println("goi tin clear");
                 handleClearOnline(msg);
                 break;
             }
