@@ -88,8 +88,8 @@ public class DashboardController {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-                List<User> players = node.requestOnlinePeers(1500);
-                Platform.runLater(() -> updatePlayersUI(players));
+//                List<User> players = node.requestOnlinePeers(1500);
+//                Platform.runLater(() -> updatePlayersUI(players));
             } catch (Exception e) {
                 e.printStackTrace();
             }

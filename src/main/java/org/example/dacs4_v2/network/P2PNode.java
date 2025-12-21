@@ -9,15 +9,15 @@ import org.example.dacs4_v2.utils.GetIPV4;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.*;
 
 public class P2PNode {
     private User localUser;
     private BroadcastManager broadcastManager;
     private IGoGameService service;
     private Registry registry;
+    private Object lock = new Object();
 
-    private final Set<User> listPeerRes = new HashSet<>();
+    private volatile User fastestOnlinePeer = null;
     private boolean started = false;
 
     public synchronized void start() throws Exception {
@@ -126,24 +126,25 @@ public class P2PNode {
             e.printStackTrace();
         }
     }
-    public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
-        synchronized (listPeerRes) {
-            listPeerRes.clear();
-        }
+    public void getPeerWhenJoinNet() throws Exception {
         BroadcastMessage msg = new BroadcastMessage("ASK_ONLINE", localUser.getUserId());
         msg.payload.put("requestId", msg.id);
         msg.payload.put("originConfig", localUser);
+        msg.payload.put("message", "goi tin cua peer: " + localUser.getName());
+
         System.out.println("bat dau....");
         broadcastManager.SendMessage(msg);
+    }
 
-        long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
+    public void firstPeerOnNet(User user) {
+        synchronized (lock) {
+            if (fastestOnlinePeer != null) return;
+            fastestOnlinePeer = user;
         }
+    }
 
-        synchronized (listPeerRes) {
-            return new ArrayList<>(listPeerRes);
-        }
+    public User getFastestOnlinePeer() {
+        return fastestOnlinePeer;
     }
 
     public static String getBroadcastIP(String ip) {

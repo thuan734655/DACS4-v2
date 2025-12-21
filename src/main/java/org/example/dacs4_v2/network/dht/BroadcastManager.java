@@ -158,6 +158,7 @@ public class BroadcastManager {
     }
 
     private void handleAskOnline(BroadcastMessage msg) {
+        System.out.println(msg.payload.get("message") );
         String requestIdRaw = (String) msg.payload.get("requestId");
         String requestId = (requestIdRaw == null || requestIdRaw.isBlank()) ? msg.id : requestIdRaw;
         final String reqId = requestId;
@@ -188,6 +189,8 @@ public class BroadcastManager {
                 clearMsg.payload.put("winnerUserId", localUser.getUserId());
                 SendMessage(clearMsg);
 
+                System.out.println("peer thang cuoc la : " + localUser.getName());
+
                 c.set(true);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -203,14 +206,17 @@ public class BroadcastManager {
     }
 
     private void handleClearOnline(BroadcastMessage msg) {
+        System.out.println(msg.payload.get("message") );
         String requestId = (String) msg.payload.get("requestId");
         if (requestId == null || requestId.isBlank()) {
             requestId = msg.id;
         }
-        if (requestId == null || requestId.isBlank()) return;
+        if (requestId == null || requestId.isBlank() ) return;
 
         AtomicBoolean cleared = clearedByRequestId.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
         cleared.set(true);
+
+        System.out.println("clear req khong gui goi tin ve nua");
 
         ScheduledFuture<?> future = pendingReplyByRequestId.remove(requestId);
         if (future != null) {
