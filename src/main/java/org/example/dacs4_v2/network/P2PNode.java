@@ -62,11 +62,11 @@ public class P2PNode {
       try {
           User prevPeer = localUser.getNeighbor(NeighborType.PREDECESSOR);
           if(prevPeer == null) {
-              localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
+              localUser.setNeighbor(NeighborType.PREDECESSOR, newPeer);
               System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
 
               //set phia peer doi phuong
-              IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
+              IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
               stubPrev.notifyAsSuccessor(localUser);
           }
           else {
@@ -96,11 +96,11 @@ public class P2PNode {
         try {
             User succPeer = localUser.getNeighbor(NeighborType.SUCCESSOR);
             if(succPeer == null) {
-                localUser.setNeighbor(NeighborType.SUCCESSOR, succPeer);
+                localUser.setNeighbor(NeighborType.SUCCESSOR, newPeer);
                 System.out.println("my pre peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
 
                 //set phia peer doi phuong
-                IGoGameService stubPrev = GoGameServiceImpl.getStub(succPeer);
+                IGoGameService stubPrev = GoGameServiceImpl.getStub(newPeer);
                 stubPrev.notifyAsPredecessor(localUser);
             }
             else {
