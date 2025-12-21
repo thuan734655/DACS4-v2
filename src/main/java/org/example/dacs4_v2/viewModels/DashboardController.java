@@ -88,8 +88,7 @@ public class DashboardController {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
-//                List<User> players = node.requestOnlinePeers(1500);
-//                Platform.runLater(() -> updatePlayersUI(players));
+                node.getPeerWhenJoinNet();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -98,7 +97,7 @@ public class DashboardController {
 
     @FXML
     private void onRefreshOnline() {
-        refreshOnlinePlayers();
+//        refreshOnlinePlayers();
     }
 
     private void updatePlayersUI(List<User> players) {

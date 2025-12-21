@@ -7,15 +7,17 @@ import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 import org.example.dacs4_v2.utils.GetIPV4;
 
+import java.math.BigInteger;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.security.MessageDigest;
 
 public class P2PNode {
     private User localUser;
     private BroadcastManager broadcastManager;
     private IGoGameService service;
     private Registry registry;
-    private Object lock = new Object();
+    private final Object lock = new Object();
 
     private volatile User fastestOnlinePeer = null;
     private boolean started = false;
@@ -127,6 +129,10 @@ public class P2PNode {
         }
     }
     public void getPeerWhenJoinNet() throws Exception {
+        synchronized (lock) {
+            fastestOnlinePeer = null;
+        }
+
         BroadcastMessage msg = new BroadcastMessage("ASK_ONLINE", localUser.getUserId());
         msg.payload.put("requestId", msg.id);
         msg.payload.put("originConfig", localUser);
@@ -136,10 +142,89 @@ public class P2PNode {
         broadcastManager.SendMessage(msg);
     }
 
+    public void joinDhtNetwork(User entry) throws Exception {
+        if (entry == null) {
+            // First node: ring of one
+            localUser.setNeighbor(NeighborType.PREDECESSOR, localUser);
+            localUser.setNeighbor(NeighborType.SUCCESSOR, localUser);
+            return;
+        }
+
+        insertIntoRingByHash(entry, 64);
+    }
+
+    private void insertIntoRingByHash(User entry, int maxHops) throws Exception {
+        BigInteger x = hashKey(localUser.getUserId());
+
+        User current = entry;
+        for (int hop = 0; hop < maxHops; hop++) {
+            IGoGameService stubCurrent = GoGameServiceImpl.getStub(current);
+            User succ = stubCurrent.getSuccessor();
+
+            if (succ == null) {
+                succ = current;
+            }
+
+            BigInteger c = hashKey(current.getUserId());
+            BigInteger s = hashKey(succ.getUserId());
+
+            if (between(c, x, s)) {
+                // current -> localUser -> succ
+                localUser.setNeighbor(NeighborType.PREDECESSOR, current);
+                localUser.setNeighbor(NeighborType.SUCCESSOR, succ);
+
+                // Update neighbors on remote peers
+                stubCurrent.notifyAsSuccessor(localUser);
+                IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
+                stubSucc.notifyAsPredecessor(localUser);
+                return;
+            }
+
+            // Advance clockwise
+            current = succ;
+        }
+
+        // TH: 2 node
+        localUser.setNeighbor(NeighborType.PREDECESSOR, entry);
+        localUser.setNeighbor(NeighborType.SUCCESSOR, entry);
+        IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
+        stubEntry.notifyAsSuccessor(localUser);
+        stubEntry.notifyAsPredecessor(localUser);
+    }
+
+    private BigInteger hashKey(String userId) throws Exception {
+        if (userId == null) {
+            return BigInteger.ZERO;
+        }
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        byte[] digest = md.digest(userId.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return new BigInteger(1, digest);
+    }
+
+    private boolean between(BigInteger a, BigInteger x, BigInteger b) {
+        int ab = a.compareTo(b);
+        if (ab < 0) {
+            // a < x <= b
+            return a.compareTo(x) < 0 && x.compareTo(b) <= 0;
+        }
+        if (ab > 0) {
+            //  x > a OR x <= b
+            return x.compareTo(a) > 0 || x.compareTo(b) <= 0;
+        }
+        // a == b => 1 node
+        return true;
+    }
+
     public void firstPeerOnNet(User user) {
         synchronized (lock) {
             if (fastestOnlinePeer != null) return;
             fastestOnlinePeer = user;
+
+            try {
+                joinDhtNetwork(fastestOnlinePeer);
+            }catch (Exception e) {
+                e.printStackTrace();
+            }
         }
     }
 

@@ -16,6 +16,8 @@ public interface IGoGameService extends Remote {
     void onReconnectOffer(Game gameSnapshot) throws RemoteException;
     void notifyAsSuccessor( User nextSuccessor) throws RemoteException;
     void notifyAsPredecessor( User prevPredecessor) throws RemoteException;
+    User getSuccessor() throws RemoteException;
+    User getPredecessor() throws RemoteException;
     List<Game> getGameHistory(int limit) throws RemoteException;
     void onOnlinePeerDiscovered(User user) throws RemoteException;
     User findPeerById(String targetPeerId, int maxHops) throws RemoteException;

@@ -149,8 +149,18 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     public void notifyAsPredecessor(User prevPredecessor) throws RemoteException {
-        localUser.setNeighbor(NeighborType.SUCCESSOR, prevPredecessor);
+        localUser.setNeighbor(NeighborType.PREDECESSOR, prevPredecessor);
         System.out.println("da cap nhat prevPeer la: " + prevPredecessor.getName());
+    }
+
+    @Override
+    public User getSuccessor() throws RemoteException {
+        return localUser.getNeighbor(NeighborType.SUCCESSOR);
+    }
+
+    @Override
+    public User getPredecessor() throws RemoteException {
+        return localUser.getNeighbor(NeighborType.PREDECESSOR);
     }
 
     public static IGoGameService getStub(User config) throws Exception {
