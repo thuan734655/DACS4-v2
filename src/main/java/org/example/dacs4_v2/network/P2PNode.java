@@ -143,14 +143,23 @@ public class P2PNode {
         broadcastManager.SendMessage(msg);
     }
 
-    public void joinDhtNetwork(User entry) throws Exception {
+    public void joinDhtNetwork(int timeoutMs) throws Exception {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        User entry;
+        while (true) {
+            synchronized (lock) {
+                entry = fastestOnlinePeer;
+            }
+            if (entry != null) break;
+            if (System.currentTimeMillis() >= deadline) break;
+            Thread.sleep(20);
+        }
         if (entry == null) {
             // First node: ring of one
             localUser.setNeighbor(NeighborType.PREDECESSOR, localUser);
             localUser.setNeighbor(NeighborType.SUCCESSOR, localUser);
             return;
         }
-
         insertIntoRingByHash(entry, 64);
     }
 
@@ -223,13 +232,14 @@ public class P2PNode {
         synchronized (lock) {
             if (fastestOnlinePeer != null) return;
             fastestOnlinePeer = user;
-
+        }
+        new Thread(() -> {
             try {
-                joinDhtNetwork(fastestOnlinePeer);
-            }catch (Exception e) {
+                joinDhtNetwork(400);
+            } catch (Exception e) {
                 e.printStackTrace();
             }
-        }
+        }).start();
     }
 
     public User getFastestOnlinePeer() {

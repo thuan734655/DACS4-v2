@@ -108,7 +108,7 @@ public class BroadcastManager {
             byte[] data = serialize(msg);
             DatagramPacket datagramPacket = new DatagramPacket(data, data.length, group, MULTICAST_PORT);
             socket.send(datagramPacket);
-            System.out.println("gui broadcast");
+            System.out.println("gui broadcast " + msg.type);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -191,7 +191,6 @@ public class BroadcastManager {
                 clearMsg.payload.put("message" , localUser.getName());
                 SendMessage(clearMsg);
 
-                System.out.println("peer thang cuoc la : " + localUser.getName());
 
                 c.set(true);
             } catch (Exception e) {
