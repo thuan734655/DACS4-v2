@@ -26,6 +26,9 @@ public class BroadcastManager {
     private final int MIN_DELAY_MS = 50;
     private final int MAX_DELAY_MS = 400;
 
+    private final AtomicBoolean running = new AtomicBoolean(true);
+    private Thread receiverThread;
+
     public BroadcastManager(User user) {
         this.localUser = user;
 
@@ -62,10 +65,10 @@ public class BroadcastManager {
 
     // Nhận gói broadcast
     private void startReceiver() {
-        Thread receiver = new Thread(() -> {
+        receiverThread = new Thread(() -> {
             byte[] buffer = new byte[8192];
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
-            while (!Thread.currentThread().isInterrupted()) {
+            while (running.get() && !Thread.currentThread().isInterrupted()) {
                 try {
                     socket.receive(packet);
                     Object obj = deserialize(packet.getData(), packet.getLength());
@@ -85,12 +88,15 @@ public class BroadcastManager {
                         messageQueue.offer(msg);
                     }
                 } catch (Exception e) {
-                    if (!socket.isClosed()) e.printStackTrace();
+                    if (socket == null || socket.isClosed() || !running.get()) {
+                        break;
+                    }
+                    e.printStackTrace();
                 }
             }
         });
-        receiver.setDaemon(true);
-        receiver.start();
+        receiverThread.setDaemon(true);
+        receiverThread.start();
     }
 
     private void startWorkers() {
@@ -111,6 +117,7 @@ public class BroadcastManager {
 
     public void SendMessage(BroadcastMessage msg) {
         try{
+            if (!running.get() || socket == null || socket.isClosed()) return;
             byte[] data = serialize(msg);
             DatagramPacket datagramPacket = new DatagramPacket(data, data.length, group, MULTICAST_PORT);
             socket.send(datagramPacket);
@@ -255,8 +262,25 @@ public class BroadcastManager {
     }
 
     public void close() {
-        socket.close();
-        workerPool.shutdown();
-        scheduler.shutdown();
+        if (!running.compareAndSet(true, false)) return;
+
+        for (Map.Entry<String, ScheduledFuture<?>> e : pendingReplyByRequestId.entrySet()) {
+            ScheduledFuture<?> f = e.getValue();
+            if (f != null) {
+                f.cancel(false);
+            }
+        }
+        pendingReplyByRequestId.clear();
+        clearedByRequestId.clear();
+
+        if (receiverThread != null) {
+            receiverThread.interrupt();
+        }
+        if (socket != null && !socket.isClosed()) {
+            socket.close();
+        }
+
+        workerPool.shutdownNow();
+        scheduler.shutdownNow();
     }
 }
