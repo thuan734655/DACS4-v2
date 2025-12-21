@@ -191,6 +191,9 @@ public class P2PNode {
         IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
         stubEntry.notifyAsSuccessor(localUser);
         stubEntry.notifyAsPredecessor(localUser);
+
+        System.out.println("succ cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.SUCCESSOR) );
+        System.out.println("prev cua peer " + localUser.getName() + " la: " + localUser.getNeighbor(NeighborType.PREDECESSOR) );
     }
 
     private BigInteger hashKey(String userId) throws Exception {

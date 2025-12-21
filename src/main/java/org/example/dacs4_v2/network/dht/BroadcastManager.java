@@ -188,6 +188,7 @@ public class BroadcastManager {
                 BroadcastMessage clearMsg = new BroadcastMessage("CLEAR_ONLINE", localUser.getUserId());
                 clearMsg.payload.put("requestId", reqId);
                 clearMsg.payload.put("winnerUserId", localUser.getUserId());
+                clearMsg.payload.put("message" , localUser.getName());
                 SendMessage(clearMsg);
 
                 System.out.println("peer thang cuoc la : " + localUser.getName());
