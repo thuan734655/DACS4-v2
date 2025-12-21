@@ -9,9 +9,12 @@ import org.example.dacs4_v2.network.rmi.IGoGameService;
 import org.example.dacs4_v2.utils.GetIPV4;
 
 import java.math.BigInteger;
+import java.rmi.NoSuchObjectException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.rmi.server.UnicastRemoteObject;
 import java.security.MessageDigest;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class P2PNode {
     private User localUser;
@@ -19,12 +22,15 @@ public class P2PNode {
     private IGoGameService service;
     private Registry registry;
     private final Object lock = new Object();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     private volatile User fastestOnlinePeer = null;
     private boolean started = false;
 
     public synchronized void start() throws Exception {
         if (started) return;
+
+        closed.set(false);
 
         User stored = UserStorage.loadUser();
         if (stored == null) {
@@ -65,13 +71,13 @@ public class P2PNode {
     }
 
     public void defNeighbor(User newPeer) {
-            int resultCompare  = localUser.getName().compareTo(newPeer.getName());
-            if(resultCompare > 0) { // local user lon hon
-                defPrevPeer(newPeer);
-            }
-            else {
-                defSuccPeer(newPeer);
-            }
+        int resultCompare  = localUser.getName().compareTo(newPeer.getName());
+        if(resultCompare > 0) { // local user lon hon
+            defPrevPeer(newPeer);
+        }
+        else {
+            defSuccPeer(newPeer);
+        }
     }
     public void defPrevPeer (User newPeer) {
       try {
@@ -253,25 +259,77 @@ public class P2PNode {
         return subIp[0] + "." + subIp[1] + "."  + subIp[2] + ".255";
     }
     public void shutdown() {
-        try {
-            if (broadcastManager != null) {
-                broadcastManager.close();
-                User prevPeer = localUser.getNeighbor(NeighborType.PREDECESSOR);
-                User succPeer = localUser.getNeighbor(NeighborType.SUCCESSOR);
-                try { // gan lai peer
-                    if(prevPeer != null)   {
+        if (!closed.compareAndSet(false, true)) return;
+
+        User me = this.localUser;
+        if (me != null) {
+            User prevPeer = me.getNeighbor(NeighborType.PREDECESSOR);
+            User succPeer = me.getNeighbor(NeighborType.SUCCESSOR);
+
+            boolean hasRing = prevPeer != null && succPeer != null;
+            boolean singleNode = hasRing && prevPeer.getUserId() != null && succPeer.getUserId() != null
+                    && prevPeer.getUserId().equals(me.getUserId())
+                    && succPeer.getUserId().equals(me.getUserId());
+
+            if (hasRing && !singleNode) {
+                try {
+                    if (prevPeer.getUserId() != null && !prevPeer.getUserId().equals(me.getUserId())) {
                         IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                        stubPrev.notifyAsPredecessor(succPeer);
+                        stubPrev.notifyAsSuccessor(succPeer);
                     }
-                    if(succPeer != null) {
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
+                    if (succPeer.getUserId() != null && !succPeer.getUserId().equals(me.getUserId())) {
                         IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                        stubSucc.notifyAsSuccessor(prevPeer);
+                        stubSucc.notifyAsPredecessor(prevPeer);
                     }
-                }catch (Exception e) {
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        } catch (Exception ignored) {}
+
+            me.setNeighbor(NeighborType.PREDECESSOR, me);
+            me.setNeighbor(NeighborType.SUCCESSOR, me);
+        }
+
+        BroadcastManager bm = this.broadcastManager;
+        if (bm != null) {
+            try {
+                bm.close();
+            } catch (Exception ignored) {}
+        }
+
+        Registry reg = this.registry;
+        IGoGameService svc = this.service;
+        if (reg != null && me != null) {
+            try {
+                String serviceName = me.getServiceName();
+                if (serviceName != null && !serviceName.isBlank()) {
+                    reg.unbind(serviceName);
+                }
+            } catch (Exception ignored) {}
+        }
+        if (svc != null) {
+            try {
+                UnicastRemoteObject.unexportObject(svc, true);
+            } catch (NoSuchObjectException ignored) {}
+        }
+        if (reg != null) {
+            try {
+                UnicastRemoteObject.unexportObject(reg, true);
+            } catch (NoSuchObjectException ignored) {}
+        }
+
+        this.broadcastManager = null;
+        this.registry = null;
+        this.service = null;
+
+        synchronized (lock) {
+            fastestOnlinePeer = null;
+        }
+        started = false;
     }
 
     public User getLocalUser() {
