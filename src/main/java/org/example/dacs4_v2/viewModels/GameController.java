@@ -675,6 +675,9 @@ public class GameController {
                 game.setCapturedByWhite(capturedByWhite);
                 GameHistoryStorage.upsert(game);
 
+                // Thông báo cho đối thủ
+                notifyOpponent("SURRENDER");
+
                 // Dừng timer
                 if (gameTimer != null) {
                     gameTimer.stop();
@@ -697,7 +700,7 @@ public class GameController {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
         confirm.setTitle("Thoát game");
         confirm.setHeaderText(null);
-        confirm.setContentText("Bạn có chắc chắn muốn thoát không? Game sẽ được lưu.");
+        confirm.setContentText("Bạn có chắc chắn muốn thoát không? Game sẽ được lưu và đối thủ sẽ được thông báo.");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.OK) {
                 // Lưu trạng thái trước khi thoát
@@ -705,7 +708,11 @@ public class GameController {
                 game.setWhiteTimeMs(whiteTimeMs);
                 game.setCapturedByBlack(capturedByBlack);
                 game.setCapturedByWhite(capturedByWhite);
+                game.setStatus(GameStatus.PAUSED);
                 GameHistoryStorage.upsert(game);
+
+                // Thông báo cho đối thủ
+                notifyOpponent("EXIT");
 
                 // Dừng timer
                 if (gameTimer != null) {
@@ -715,6 +722,36 @@ public class GameController {
                 HelloApplication.navigateTo("dashboard.fxml");
             }
         });
+    }
+
+    /**
+     * Thông báo cho đối thủ khi thoát/đầu hàng.
+     * 
+     * @param reason lý do ("EXIT", "SURRENDER")
+     */
+    private void notifyOpponent(String reason) {
+        new Thread(() -> {
+            try {
+                P2PNode node = P2PContext.getInstance().getOrCreateNode();
+                User localUser = node.getLocalUser();
+                String myId = localUser != null ? localUser.getUserId() : null;
+
+                User rival = null;
+                if (myId != null && myId.equals(game.getUserId())) {
+                    rival = game.getRivalUser();
+                } else {
+                    rival = game.getHostUser();
+                }
+
+                if (rival != null && localUser != null) {
+                    IGoGameService remote = GoGameServiceImpl.getStub(rival);
+                    remote.notifyGamePaused(game.getGameId(), localUser, reason);
+                }
+            } catch (Exception e) {
+                // Không thể thông báo (đối thủ có thể đã offline)
+                System.out.println("[RMI] Không thể thông báo cho đối thủ: " + e.getMessage());
+            }
+        }, "notify-opponent-thread").start();
     }
 
     // ==================== TIỆN ÍCH ====================

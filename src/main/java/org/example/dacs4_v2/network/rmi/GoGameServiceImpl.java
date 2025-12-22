@@ -783,18 +783,62 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) Naming.lookup(url);
     }
-    //
-    // int bestDistance = Math.abs(myId.compareTo(targetPeerId));
-    // UserConfig best = null;
-    //
-    // for (NeighborType type : NeighborType.values()) {
-    // if (c == null || c.getUserId() == null) continue;
-    // int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
-    // if (dist < bestDistance) {
-    // bestDistance = dist;
-    // best = c;
-    // }
-    // }
-    // return best;
-    // }
+
+    @Override
+    /**
+     * Xử lý thông báo khi đối thủ thoát/tạm dừng game.
+     * Hiển thị dialog cho người chơi còn lại.
+     *
+     * @param gameId ID của game
+     * @param user   người thoát
+     * @param reason lý do ("EXIT", "DISCONNECT", "SURRENDER")
+     * @throws RemoteException lỗi RMI
+     */
+    public void notifyGamePaused(String gameId, User user, String reason) throws RemoteException {
+        if (gameId == null || user == null)
+            return;
+
+        Game game = resolveGameForResume(gameId);
+        if (game == null)
+            return;
+
+        String userName = user.getName() != null ? user.getName() : "Đối thủ";
+        String message;
+
+        switch (reason) {
+            case "EXIT":
+                message = userName + " đã thoát khỏi trận đấu.\nGame sẽ được tạm dừng và có thể tiếp tục sau.";
+                game.setStatus(GameStatus.PAUSED);
+                break;
+            case "DISCONNECT":
+                message = userName + " đã mất kết nối.\nGame sẽ được tạm dừng.";
+                game.setStatus(GameStatus.PAUSED);
+                break;
+            case "SURRENDER":
+                message = userName + " đã đầu hàng!\nBạn thắng!";
+                game.setStatus(GameStatus.FINISHED);
+                game.setEndedAt(System.currentTimeMillis());
+                break;
+            default:
+                message = userName + " đã rời game.";
+                game.setStatus(GameStatus.PAUSED);
+        }
+
+        // Lưu trạng thái game
+        GameHistoryStorage.upsert(game);
+
+        // Hiển thị thông báo
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Thông báo");
+            alert.setHeaderText(null);
+            alert.setContentText(message);
+            alert.showAndWait();
+
+            // Nếu surrender thì chuyển về rooms
+            if ("SURRENDER".equals(reason)) {
+                HelloApplication.navigateTo("rooms.fxml");
+            }
+        });
+    }
 }
