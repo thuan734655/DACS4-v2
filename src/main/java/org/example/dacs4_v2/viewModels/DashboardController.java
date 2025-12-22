@@ -70,14 +70,17 @@ public class DashboardController {
             updateStats(node);
 
             ensureNeighborCards();
-            applyNeighborToCard(node.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel, predecessorRankLabel);
+            applyNeighborToCard(node.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel,
+                    predecessorRankLabel);
             applyNeighborToCard(node.getSuccessor(), successorAvatarLabel, successorNameLabel, successorRankLabel);
 
             P2PContext.getInstance().setNeighborUiUpdater(() -> Platform.runLater(() -> {
                 P2PNode n = P2PContext.getInstance().getNode();
-                if (n == null) return;
+                if (n == null)
+                    return;
                 ensureNeighborCards();
-                applyNeighborToCard(n.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel, predecessorRankLabel);
+                applyNeighborToCard(n.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel,
+                        predecessorRankLabel);
                 applyNeighborToCard(n.getSuccessor(), successorAvatarLabel, successorNameLabel, successorRankLabel);
 
                 // Neighbors thay đổi => online count cũng thay đổi.
@@ -114,7 +117,8 @@ public class DashboardController {
             lblTotalGames.setText(String.valueOf(total));
         }
 
-        // Win rate: hiện chưa có result/winner nên chỉ có thể show "-" hoặc tỉ lệ FINISHED.
+        // Win rate: hiện chưa có result/winner nên chỉ có thể show "-" hoặc tỉ lệ
+        // FINISHED.
         if (lblWinRate != null) {
             int finished = 0;
             if (games != null) {
@@ -134,7 +138,8 @@ public class DashboardController {
             lblCurrentRank.setText(rank <= 0 ? "-" : String.valueOf(rank));
         }
 
-        // Online Friends: hiện dự án chưa maintain full list peers online; dùng neighbors hiện tại làm số liệu thật.
+        // Online Friends: hiện dự án chưa maintain full list peers online; dùng
+        // neighbors hiện tại làm số liệu thật.
         if (lblOnlineFriends != null) {
             int online = countOnlineNeighbors(node);
             lblOnlineFriends.setText(String.valueOf(online));
@@ -158,10 +163,12 @@ public class DashboardController {
     }
 
     private void ensureNeighborCards() {
-        if (playersContainer == null) return;
+        if (playersContainer == null)
+            return;
 
         P2PNode node = P2PContext.getInstance().getNode();
-        if (node == null || node.getLocalUser() == null) return;
+        if (node == null || node.getLocalUser() == null)
+            return;
 
         User me = node.getLocalUser();
         User pred = node.getPredecessor();
@@ -175,7 +182,8 @@ public class DashboardController {
         if (!hasAnyoneOnline) {
             if (emptyOnlineCard == null) {
                 emptyOnlineCard = new HBox(12);
-                emptyOnlineCard.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+                emptyOnlineCard.setStyle(
+                        "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
                 Label msg = new Label("Không có ai online");
                 msg.setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
                 emptyOnlineCard.getChildren().add(msg);
@@ -219,7 +227,8 @@ public class DashboardController {
 
     private HBox buildNeighborCard(boolean predecessor) {
         Label avatar = new Label("?");
-        avatar.setStyle("-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;");
+        avatar.setStyle(
+                "-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;");
         VBox avatarBox = new VBox(4);
         avatarBox.getChildren().add(avatar);
 
@@ -240,11 +249,13 @@ public class DashboardController {
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         Button inviteBtn = new Button("Invite");
-        inviteBtn.setStyle("-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999; -fx-padding: 6 14;");
+        inviteBtn.setStyle(
+                "-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999; -fx-padding: 6 14;");
         inviteBtn.setOnAction(e -> onInviteNeighbor(predecessor));
 
         HBox card = new HBox(12);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+        card.setStyle(
+                "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
         card.getChildren().addAll(avatarBox, infoBox, spacer, inviteBtn);
 
         if (predecessor) {
@@ -300,7 +311,8 @@ public class DashboardController {
     }
 
     private void applyNeighborToCard(User u, Label avatarLabel, Label nameLabel, Label rankLabel) {
-        if (avatarLabel == null || nameLabel == null || rankLabel == null) return;
+        if (avatarLabel == null || nameLabel == null || rankLabel == null)
+            return;
 
         if (u == null) {
             avatarLabel.setText("?");
@@ -336,7 +348,49 @@ public class DashboardController {
 
     @FXML
     private void onChallengeAI() {
-        // Sau này điều hướng tới màn chơi với AI riêng nếu cần
+        try {
+            // Import AIGameContext
+            org.example.dacs4_v2.ai.AIGameContext aiContext = org.example.dacs4_v2.ai.AIGameContext.getInstance();
+
+            // Bắt đầu game mới với AI (19x19, komi 6.5)
+            org.example.dacs4_v2.models.Game aiGame = aiContext.startNewAIGame(19, 6.5);
+
+            if (aiGame == null) {
+                // Không tìm thấy KataGo
+                javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                        javafx.scene.control.Alert.AlertType.WARNING);
+                alert.setTitle("KataGo chưa cài đặt");
+                alert.setHeaderText(null);
+                alert.setContentText("Vui lòng download KataGo và đặt vào thư mục katago/\n\n" +
+                        "Cần có:\n" +
+                        "• katago/katago.exe\n" +
+                        "• katago/model.bin.gz\n\n" +
+                        "Download tại: github.com/lightvector/KataGo/releases");
+                alert.showAndWait();
+                return;
+            }
+
+            // Set host user là người chơi local
+            P2PNode node = P2PContext.getInstance().getOrCreateNode();
+            if (node != null && node.getLocalUser() != null) {
+                aiGame.setHostUser(node.getLocalUser());
+                aiGame.setUserId(node.getLocalUser().getUserId());
+            }
+
+            // Chuyển đến màn game
+            org.example.dacs4_v2.game.GameContext.getInstance().setCurrentGame(aiGame);
+            org.example.dacs4_v2.game.GameContext.getInstance().setViewOnly(false);
+            org.example.dacs4_v2.HelloApplication.navigateTo("game.fxml");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                    javafx.scene.control.Alert.AlertType.ERROR);
+            alert.setTitle("Lỗi");
+            alert.setHeaderText(null);
+            alert.setContentText("Không thể bắt đầu game với AI: " + e.getMessage());
+            alert.showAndWait();
+        }
     }
 
     @FXML
@@ -354,7 +408,8 @@ public class DashboardController {
     }
 
     private void refreshOnlinePlayers() {
-        // Broadcast ASK_ONLINE để tìm peer entry, từ đó join ring => cập nhật successor/predecessor.
+        // Broadcast ASK_ONLINE để tìm peer entry, từ đó join ring => cập nhật
+        // successor/predecessor.
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
@@ -371,14 +426,16 @@ public class DashboardController {
     }
 
     private void updatePlayersUI(List<User> players) {
-        if (playersContainer == null) return;
+        if (playersContainer == null)
+            return;
         playersContainer.getChildren().clear();
 
         ensureNeighborCards();
 
         if (players == null || players.isEmpty()) {
             HBox emptyCard = new HBox(12);
-            emptyCard.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+            emptyCard.setStyle(
+                    "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
 
             Label msg = new Label("Không có ai online");
             msg.setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
@@ -394,11 +451,13 @@ public class DashboardController {
             String rankText = rank <= 0 ? "Beginner" : (rank + " \uD83E\uDD47");
 
             HBox card = new HBox(12);
-            card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+            card.setStyle(
+                    "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
 
             VBox avatarBox = new VBox(4);
             Label avatar = new Label(name.isEmpty() ? "?" : name.substring(0, 1).toUpperCase());
-            avatar.setStyle("-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;");
+            avatar.setStyle(
+                    "-fx-background-radius: 999; -fx-background-color: linear-gradient(to bottom, #6366f1, #8b5cf6); -fx-text-fill: white; -fx-padding: 10 14;");
             avatarBox.getChildren().add(avatar);
 
             VBox infoBox = new VBox(4);
