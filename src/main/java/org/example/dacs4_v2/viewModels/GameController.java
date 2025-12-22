@@ -95,6 +95,7 @@ public class GameController {
     private String localPlayerId; // ID người chơi local
     private boolean isBlack; // true nếu local player là quân đen
     private boolean viewOnly; // true nếu chỉ xem, không chơi
+    private boolean isAIGame = false; // true nếu đang chơi với AI
 
     // ==================== CÀI ĐẶT VẼ BÀN CỜ ====================
     private double cellSize; // Kích thước mỗi ô
@@ -111,6 +112,9 @@ public class GameController {
     private long lastTickTime; // Thời điểm tick cuối cùng
     private AnimationTimer gameTimer; // Timer đếm ngược
     private long turnStartTime; // Thời điểm bắt đầu lượt hiện tại
+
+    // ==================== KẾT THÚC GAME ====================
+    private int consecutivePasses = 0; // Số pass liên tiếp (2 = kết thúc game)
 
     // ==================== KHỞI TẠO ====================
 
@@ -152,6 +156,9 @@ public class GameController {
         // Xác định màu quân của local player
         isBlack = localPlayerId != null && localPlayerId.equals(game.getUserId());
 
+        // Kiểm tra xem đây có phải game với AI không
+        isAIGame = org.example.dacs4_v2.ai.AIGameContext.getInstance().isAIGame();
+
         // Thiết lập giao diện
         setupHeader();
         setupPlayerPanels();
@@ -165,14 +172,20 @@ public class GameController {
         updateTurnIndicator();
         updateCapturedStones();
 
-        // Thiết lập listener nhận nước đi từ đối thủ
-        if (!viewOnly) {
+        // Thiết lập listener nhận nước đi từ đối thủ (chỉ cho game P2P)
+        if (!viewOnly && !isAIGame) {
             GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
             turnStartTime = System.currentTimeMillis();
             startTimer();
 
             // Đăng ký callback để xử lý khi app bị đóng đột ngột
             GameContext.getInstance().setExitCallback(this::onAppExit);
+        }
+
+        // Khởi tạo cho AI game
+        if (!viewOnly && isAIGame) {
+            turnStartTime = System.currentTimeMillis();
+            startTimer();
         }
 
         // Vô hiệu hóa nút nếu chỉ xem
@@ -277,15 +290,6 @@ public class GameController {
             lblWhiteName.setText(name);
             lblWhiteAvatar.setText(name.isEmpty() ? "○" : name.substring(0, 1).toUpperCase());
             lblWhiteRank.setText("Rank: " + (whitePlayer.getRank() > 0 ? whitePlayer.getRank() : "-"));
-        }
-
-        // Highlight panel của người chơi local
-        if (isBlack) {
-            panelBlack.setStyle(
-                    panelBlack.getStyle() + "-fx-border-color: #3b82f6; -fx-border-width: 3; -fx-border-radius: 0;");
-        } else {
-            panelWhite.setStyle(
-                    panelWhite.getStyle() + "-fx-border-color: #64748b; -fx-border-width: 3; -fx-border-radius: 0;");
         }
     }
 
@@ -459,6 +463,9 @@ public class GameController {
         // Reset thời điểm cho lượt tiếp theo
         turnStartTime = currentTime;
 
+        // Reset số pass liên tiếp (vì đây là nước đi thường)
+        consecutivePasses = 0;
+
         // Lưu trạng thái game
         saveGameState(move);
 
@@ -467,8 +474,75 @@ public class GameController {
         updateTurnIndicator();
         updateCapturedStones();
 
-        // Gửi nước đi cho đối thủ
-        sendMoveToOpponent(move, order);
+        // Xử lý tùy theo loại game
+        if (isAIGame) {
+            // Game với AI: thông báo cho AI và đợi AI đánh lại
+            handleAIResponse(gridX, gridY);
+        } else {
+            // Game P2P: gửi nước đi cho đối thủ
+            sendMoveToOpponent(move, order);
+        }
+    }
+
+    /**
+     * Xử lý phản hồi của AI sau khi người chơi đánh.
+     */
+    private void handleAIResponse(int playerX, int playerY) {
+        org.example.dacs4_v2.ai.AIGameContext aiContext = org.example.dacs4_v2.ai.AIGameContext.getInstance();
+
+        // Thông báo nước đi của người chơi cho AI
+        aiContext.playPlayerMove(playerX, playerY);
+
+        // Đợi AI đánh trong background thread
+        new Thread(() -> {
+            try {
+                // AI suy nghĩ và đánh
+                int[] aiMove = aiContext.getAIMove();
+
+                Platform.runLater(() -> {
+                    if (aiMove == null) {
+                        showAlert("Lỗi AI", "AI không thể đánh. Vui lòng thử lại.");
+                        return;
+                    }
+
+                    if (aiMove[0] == -1 && aiMove[1] == -1) {
+                        // AI pass
+                        showAlert("AI Pass", "AI đã pass.");
+                        return;
+                    }
+
+                    // Áp dụng nước đi của AI
+                    int aiColor = isBlack ? 2 : 1; // AI màu ngược với player
+                    if (gameLogic.applyMove(aiMove[0], aiMove[1], aiColor, false)) {
+                        // Cập nhật số quân bị bắt
+                        if (aiColor == 1) {
+                            capturedByBlack += gameLogic.getLastCaptureCount();
+                        } else {
+                            capturedByWhite += gameLogic.getLastCaptureCount();
+                        }
+
+                        // Tạo và lưu move của AI
+                        int aiOrder = game.getMoves() != null ? game.getMoves().size() + 1 : 1;
+                        String aiPlayerColor = isBlack ? "WHITE" : "BLACK";
+                        Moves aiMoveObj = new Moves(aiOrder, aiPlayerColor, aiMove[0], aiMove[1], game.getGameId());
+                        saveGameState(aiMoveObj);
+
+                        // Reset timer cho lượt tiếp theo
+                        turnStartTime = System.currentTimeMillis();
+
+                        // Cập nhật UI
+                        drawBoard();
+                        updateTurnIndicator();
+                        updateCapturedStones();
+                    }
+                });
+
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    showAlert("Lỗi AI", "Không thể lấy nước đi từ AI: " + e.getMessage());
+                });
+            }
+        }, "ai-response-thread").start();
     }
 
     /**
@@ -541,6 +615,9 @@ public class GameController {
 
         // Áp dụng nước đi (nếu không phải pass)
         if (mx >= 0 && my >= 0) {
+            // Nước đi thường - reset pass count
+            consecutivePasses = 0;
+
             if (!gameLogic.applyMove(mx, my, color, false)) {
                 return;
             }
@@ -550,6 +627,15 @@ public class GameController {
                 capturedByBlack += gameLogic.getLastCaptureCount();
             } else {
                 capturedByWhite += gameLogic.getLastCaptureCount();
+            }
+        } else {
+            // Đây là pass từ đối thủ
+            consecutivePasses++;
+
+            // Kiểm tra 2 pass liên tiếp
+            if (consecutivePasses >= 2) {
+                Platform.runLater(this::onGameEnd);
+                return;
             }
         }
 
@@ -673,6 +759,9 @@ public class GameController {
             return;
         }
 
+        // Tăng số pass liên tiếp
+        consecutivePasses++;
+
         // Tính thời gian suy nghĩ
         long currentTime = System.currentTimeMillis();
         long thinkingTime = currentTime - turnStartTime;
@@ -695,7 +784,12 @@ public class GameController {
         // Gửi cho đối thủ
         sendMoveToOpponent(passMove, order);
 
-        showAlert("Pass", "Bạn đã pass lượt này.");
+        // Kiểm tra 2 pass liên tiếp → kết thúc game
+        if (consecutivePasses >= 2) {
+            onGameEnd();
+        } else {
+            showAlert("Pass", "Bạn đã pass lượt này.");
+        }
     }
 
     /**
@@ -802,6 +896,119 @@ public class GameController {
     }
 
     // ==================== TIỆN ÍCH ====================
+
+    /**
+     * Xử lý khi game kết thúc (2 pass liên tiếp).
+     * Dừng timer và hiện dialog chọn cách tính điểm.
+     */
+    private void onGameEnd() {
+        // Dừng timer
+        if (gameTimer != null) {
+            gameTimer.stop();
+        }
+
+        // Hiện dialog chọn cách tính điểm
+        Alert scoringDialog = new Alert(Alert.AlertType.CONFIRMATION);
+        scoringDialog.setTitle("Game kết thúc");
+        scoringDialog.setHeaderText("Cả 2 người chơi đã pass liên tiếp.\nChọn cách tính điểm:");
+        scoringDialog.setContentText("Cách 1: Thủ công (vote sống/chết)\nCách 2: Dùng AI tự động");
+
+        javafx.scene.control.ButtonType manualBtn = new javafx.scene.control.ButtonType("Thủ công");
+        javafx.scene.control.ButtonType aiBtn = new javafx.scene.control.ButtonType("Dùng AI");
+        javafx.scene.control.ButtonType cancelBtn = new javafx.scene.control.ButtonType("Tiếp tục chơi",
+                javafx.scene.control.ButtonBar.ButtonData.CANCEL_CLOSE);
+
+        scoringDialog.getButtonTypes().setAll(manualBtn, aiBtn, cancelBtn);
+
+        java.util.Optional<javafx.scene.control.ButtonType> result = scoringDialog.showAndWait();
+
+        if (result.isPresent()) {
+            if (result.get() == manualBtn) {
+                // Tính điểm thủ công
+                startManualScoring();
+            } else if (result.get() == aiBtn) {
+                // Dùng AI tính điểm
+                useAIScoring();
+            } else {
+                // Tiếp tục chơi - reset pass count và restart timer
+                consecutivePasses = 0;
+                if (!viewOnly && gameTimer != null) {
+                    lastTickTime = System.currentTimeMillis();
+                    gameTimer.start();
+                }
+            }
+        }
+    }
+
+    /**
+     * Bắt đầu mode tính điểm thủ công.
+     * Highlight các nhóm quân để vote sống/chết.
+     */
+    private void startManualScoring() {
+        // TODO: Implement manual scoring với UI vote
+        showAlert("Tính điểm thủ công",
+                "Tính năng đang phát triển.\n\n" +
+                        "Sẽ thêm:\n" +
+                        "• Highlight các nhóm quân\n" +
+                        "• Click để vote quân chết\n" +
+                        "• Sync với đối thủ\n" +
+                        "• Tính điểm theo luật Nhật");
+
+        // Tạm thời tính điểm đơn giản
+        calculateSimpleScore();
+    }
+
+    /**
+     * Dùng AI (KataGo) để tính điểm.
+     */
+    private void useAIScoring() {
+        org.example.dacs4_v2.ai.AIGameContext aiContext = org.example.dacs4_v2.ai.AIGameContext.getInstance();
+
+        if (!aiContext.isKataGoReady()) {
+            showAlert("Lỗi", "KataGo chưa sẵn sàng. Vui lòng dùng cách tính thủ công.");
+            calculateSimpleScore();
+            return;
+        }
+
+        // Gọi KataGo tính điểm
+        String scoreResult = aiContext.calculateScore();
+        showGameResult(scoreResult);
+    }
+
+    /**
+     * Tính điểm đơn giản (chỉ đếm quân bắt được + komi).
+     */
+    private void calculateSimpleScore() {
+        double blackScore = capturedByBlack;
+        double whiteScore = capturedByWhite + game.getKomi();
+
+        String winner = blackScore > whiteScore ? "ĐEN" : "TRẮNG";
+        double diff = Math.abs(blackScore - whiteScore);
+
+        String result = winner + " thắng " + diff + " điểm\n\n" +
+                "Điểm Đen: " + blackScore + " (bắt " + capturedByBlack + " quân)\n" +
+                "Điểm Trắng: " + whiteScore + " (bắt " + capturedByWhite + " + komi " + game.getKomi() + ")";
+
+        showGameResult(result);
+    }
+
+    /**
+     * Hiển thị kết quả game.
+     */
+    private void showGameResult(String result) {
+        // Cập nhật trạng thái game
+        game.setStatus(GameStatus.FINISHED);
+        GameHistoryStorage.upsert(game);
+
+        Alert resultDialog = new Alert(Alert.AlertType.INFORMATION);
+        resultDialog.setTitle("Kết quả game");
+        resultDialog.setHeaderText("🏆 Game kết thúc!");
+        resultDialog.setContentText(result);
+        resultDialog.showAndWait();
+
+        // Quay về dashboard
+        HelloApplication.navigateTo("dashboard.fxml");
+    }
 
     /**
      * Hiển thị dialog thông báo.
