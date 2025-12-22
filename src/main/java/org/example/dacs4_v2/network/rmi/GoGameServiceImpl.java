@@ -787,14 +787,17 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     @Override
     /**
      * Xử lý thông báo khi đối thủ thoát/tạm dừng game.
-     * Hiển thị dialog cho người chơi còn lại.
+     * Lưu thời gian đồng bộ và hiển thị dialog cho người chơi còn lại.
      *
-     * @param gameId ID của game
-     * @param user   người thoát
-     * @param reason lý do ("EXIT", "DISCONNECT", "SURRENDER")
+     * @param gameId      ID của game
+     * @param user        người thoát
+     * @param reason      lý do ("EXIT", "DISCONNECT", "SURRENDER")
+     * @param blackTimeMs thời gian còn lại của quân đen (ms)
+     * @param whiteTimeMs thời gian còn lại của quân trắng (ms)
      * @throws RemoteException lỗi RMI
      */
-    public void notifyGamePaused(String gameId, User user, String reason) throws RemoteException {
+    public void notifyGamePaused(String gameId, User user, String reason, long blackTimeMs, long whiteTimeMs)
+            throws RemoteException {
         if (gameId == null || user == null)
             return;
 
@@ -824,10 +827,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
                 game.setStatus(GameStatus.PAUSED);
         }
 
+        // Lưu thời gian đồng bộ từ đối thủ
+        game.setBlackTimeMs(blackTimeMs);
+        game.setWhiteTimeMs(whiteTimeMs);
+
         // Lưu trạng thái game
         GameHistoryStorage.upsert(game);
 
-        // Hiển thị thông báo
+        // Hiển thị thông báo và chuyển về màn hình phù hợp
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("Thông báo");
@@ -835,9 +842,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             alert.setContentText(message);
             alert.showAndWait();
 
-            // Nếu surrender thì chuyển về rooms
+            // Sau khi xem thông báo, chuyển về màn hình phù hợp
             if ("SURRENDER".equals(reason)) {
                 HelloApplication.navigateTo("rooms.fxml");
+            } else {
+                // EXIT hoặc DISCONNECT: chuyển về dashboard
+                HelloApplication.navigateTo("dashboard.fxml");
             }
         });
     }

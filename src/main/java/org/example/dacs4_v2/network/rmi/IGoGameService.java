@@ -47,11 +47,14 @@ public interface IGoGameService extends Remote {
     User findSuccessorByHash(BigInteger targetHash, int maxHops) throws RemoteException;
 
     /**
-     * Thông báo cho đối thủ khi thoát/tạm dừng game.
+     * Thông báo cho đối thủ khi thoát/tạm dừng game, kèm thời gian để đồng bộ.
      * 
-     * @param gameId ID của game
-     * @param user   người thoát
-     * @param reason lý do ("EXIT", "DISCONNECT", "SURRENDER")
+     * @param gameId      ID của game
+     * @param user        người thoát
+     * @param reason      lý do ("EXIT", "DISCONNECT", "SURRENDER")
+     * @param blackTimeMs thời gian còn lại của quân đen (ms)
+     * @param whiteTimeMs thời gian còn lại của quân trắng (ms)
      */
-    void notifyGamePaused(String gameId, User user, String reason) throws RemoteException;
+    void notifyGamePaused(String gameId, User user, String reason, long blackTimeMs, long whiteTimeMs)
+            throws RemoteException;
 }

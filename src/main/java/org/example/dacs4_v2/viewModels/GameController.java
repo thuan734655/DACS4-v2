@@ -745,7 +745,8 @@ public class GameController {
 
                 if (rival != null && localUser != null) {
                     IGoGameService remote = GoGameServiceImpl.getStub(rival);
-                    remote.notifyGamePaused(game.getGameId(), localUser, reason);
+                    // Gửi kèm thời gian để đối thủ lưu đồng bộ
+                    remote.notifyGamePaused(game.getGameId(), localUser, reason, blackTimeMs, whiteTimeMs);
                 }
             } catch (Exception e) {
                 // Không thể thông báo (đối thủ có thể đã offline)
