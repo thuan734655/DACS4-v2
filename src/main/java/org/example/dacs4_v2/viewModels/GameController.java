@@ -993,21 +993,90 @@ public class GameController {
     }
 
     /**
-     * Hiển thị kết quả game.
+     * Hiển thị kết quả game và cập nhật rank.
+     * 
+     * @param result Kết quả dạng "B+10.5" hoặc mô tả chi tiết
      */
     private void showGameResult(String result) {
         // Cập nhật trạng thái game
         game.setStatus(GameStatus.FINISHED);
+
+        // Xác định người thắng và cập nhật rank
+        String rankUpdateMsg = updatePlayerRanks(result);
+
         GameHistoryStorage.upsert(game);
 
         Alert resultDialog = new Alert(Alert.AlertType.INFORMATION);
         resultDialog.setTitle("Kết quả game");
         resultDialog.setHeaderText("🏆 Game kết thúc!");
-        resultDialog.setContentText(result);
+        resultDialog.setContentText(result + "\n\n" + rankUpdateMsg);
         resultDialog.showAndWait();
 
         // Quay về dashboard
         HelloApplication.navigateTo("dashboard.fxml");
+    }
+
+    /**
+     * Cập nhật rank cho người chơi sau khi game kết thúc.
+     * Thắng +10, Thua -10, Hòa ±0
+     * 
+     * @return Thông báo về thay đổi rank
+     */
+    private String updatePlayerRanks(String result) {
+        // Không update rank cho game AI
+        if (isAIGame) {
+            return "Rank không thay đổi (game với AI)";
+        }
+
+        // Xác định người thắng từ kết quả
+        // Format: "B+10.5", "W+5.0", "ĐEN thắng...", "TRẮNG thắng..."
+        boolean blackWins = result.startsWith("B+") || result.contains("ĐEN thắng");
+        boolean whiteWins = result.startsWith("W+") || result.contains("TRẮNG thắng");
+        boolean isDraw = !blackWins && !whiteWins;
+
+        // Lấy user hiện tại
+        P2PNode node = P2PContext.getInstance().getOrCreateNode();
+        User localUser = node != null ? node.getLocalUser() : null;
+
+        if (localUser == null) {
+            return "Không thể cập nhật rank";
+        }
+
+        int oldRank = localUser.getRank();
+        int rankChange = 0;
+
+        if (isDraw) {
+            rankChange = 0;
+        } else if ((isBlack && blackWins) || (!isBlack && whiteWins)) {
+            // Local player thắng
+            rankChange = 10;
+        } else {
+            // Local player thua
+            rankChange = -10;
+        }
+
+        // Cập nhật rank
+        int newRank = Math.max(0, oldRank + rankChange); // Không cho rank âm
+        localUser.setRank(newRank);
+
+        // Lưu thông tin vào game
+        if (isBlack) {
+            game.getHostUser().setRank(newRank);
+        } else if (game.getRivalUser() != null) {
+            game.getRivalUser().setRank(newRank);
+        }
+
+        // Tạo thông báo
+        String status;
+        if (rankChange > 0) {
+            status = "🎉 Rank: " + oldRank + " → " + newRank + " (+" + rankChange + ")";
+        } else if (rankChange < 0) {
+            status = "📉 Rank: " + oldRank + " → " + newRank + " (" + rankChange + ")";
+        } else {
+            status = "Rank: " + oldRank + " (không đổi)";
+        }
+
+        return status;
     }
 
     /**

@@ -16,6 +16,7 @@
                 <ToggleButton text="Dashboard" maxWidth="Infinity" selected="true" onAction="#onGoDashboard"/>
                 <ToggleButton text="Play Game" maxWidth="Infinity"/>
                 <ToggleButton text="Games" maxWidth="Infinity" onAction="#onGoRooms"/>
+                <ToggleButton text="History" maxWidth="Infinity" onAction="#onGoHistory"/>
                 <ToggleButton text="Statistics" maxWidth="Infinity"/>
 
                 <Pane VBox.vgrow="ALWAYS"/>
