@@ -199,10 +199,10 @@ public class GameController {
         // Highlight local player's panel
         if (isBlack) {
             panelBlack.setStyle(
-                    panelBlack.getStyle() + "-fx-border-color: #4ade80; -fx-border-width: 3; -fx-border-radius: 0;");
+                    panelBlack.getStyle() + "-fx-border-color: #3b82f6; -fx-border-width: 3; -fx-border-radius: 0;");
         } else {
             panelWhite.setStyle(
-                    panelWhite.getStyle() + "-fx-border-color: #f472b6; -fx-border-width: 3; -fx-border-radius: 0;");
+                    panelWhite.getStyle() + "-fx-border-color: #64748b; -fx-border-width: 3; -fx-border-radius: 0;");
         }
     }
 
@@ -227,11 +227,11 @@ public class GameController {
         gc.clearRect(0, 0, boardPixelSize, boardPixelSize);
 
         // Draw wood background
-        gc.setFill(Color.web("#c4a26a"));
+        gc.setFill(Color.web("#dcb35c"));
         gc.fillRect(0, 0, boardPixelSize, boardPixelSize);
 
         // Draw wood grain effect (simple lines)
-        gc.setStroke(Color.web("#b8956a"));
+        gc.setStroke(Color.web("#c9a24d"));
         gc.setLineWidth(0.5);
         for (int i = 0; i < boardPixelSize; i += 15) {
             gc.strokeLine(0, i, boardPixelSize, i + 5);
@@ -452,11 +452,11 @@ public class GameController {
         if (blackTurn) {
             lblTurnIndicator.setText("Lượt: ĐEN ●");
             lblTurnIndicator.setStyle(
-                    "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a1a2e; -fx-background-color: #4ade80; -fx-padding: 6 12; -fx-background-radius: 999;");
+                    "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: white; -fx-background-color: #1e293b; -fx-padding: 6 12; -fx-background-radius: 999;");
         } else {
             lblTurnIndicator.setText("Lượt: TRẮNG ○");
             lblTurnIndicator.setStyle(
-                    "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1a1a2e; -fx-background-color: #f472b6; -fx-padding: 6 12; -fx-background-radius: 999;");
+                    "-fx-font-size: 14; -fx-font-weight: bold; -fx-text-fill: #1e293b; -fx-background-color: #e2e8f0; -fx-padding: 6 12; -fx-background-radius: 999;");
         }
     }
 
