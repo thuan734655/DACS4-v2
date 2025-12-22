@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
 import org.example.dacs4_v2.network.NetworkRuntimeConfig;
@@ -19,6 +20,9 @@ public class HelloApplication extends Application {
 
     private static Stage primaryStage;
     private static final Map<String, Parent> viewCache = new HashMap<>();
+
+    // Track UI hiện tại để xử lý khi thoát app
+    private static String currentView = "";
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -30,6 +34,7 @@ public class HelloApplication extends Application {
         // Nếu đã có user.json trong thư mục data thì bỏ qua màn login
         File userFile = new File("data/user.json");
         String startFxml = userFile.exists() ? "dashboard.fxml" : "login.fxml";
+        currentView = startFxml;
 
         Parent root = loadFXML(startFxml);
         Scene scene = new Scene(root);
@@ -38,6 +43,12 @@ public class HelloApplication extends Application {
         stage.setScene(scene);
         stage.setOnCloseRequest(event -> {
             try {
+                // Kiểm tra nếu đang trong game thì xử lý thoát
+                if ("game.fxml".equals(currentView)) {
+                    GameContext.getInstance().handleAppExit();
+                }
+
+                // Shutdown P2P node
                 P2PNode node = P2PContext.getInstance().getNode();
                 if (node != null) {
                     node.shutdown();
@@ -67,9 +78,14 @@ public class HelloApplication extends Application {
         }
         try {
             if ("game.fxml".equals(fxmlName)) {
-                // Game screen phụ thuộc GameContext.currentGame; không cache để mỗi ván tạo controller/UI mới.
+                // Game screen phụ thuộc GameContext.currentGame; không cache để mỗi ván tạo
+                // controller/UI mới.
                 viewCache.remove(fxmlName);
             }
+
+            // Cập nhật view hiện tại
+            currentView = fxmlName;
+
             Parent root = loadFXML(fxmlName);
             Scene scene = primaryStage.getScene();
             if (scene == null) {
@@ -82,5 +98,11 @@ public class HelloApplication extends Application {
             e.printStackTrace();
         }
     }
-}
 
+    /**
+     * Lấy tên view hiện tại.
+     */
+    public static String getCurrentView() {
+        return currentView;
+    }
+}

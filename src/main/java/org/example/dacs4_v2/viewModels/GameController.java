@@ -170,12 +170,58 @@ public class GameController {
             GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
             turnStartTime = System.currentTimeMillis();
             startTimer();
+
+            // Đăng ký callback để xử lý khi app bị đóng đột ngột
+            GameContext.getInstance().setExitCallback(this::onAppExit);
         }
 
         // Vô hiệu hóa nút nếu chỉ xem
         if (viewOnly) {
             btnPass.setDisable(true);
             btnSurrender.setDisable(true);
+        }
+    }
+
+    /**
+     * Xử lý khi app bị đóng trong khi đang chơi game.
+     * Lưu trạng thái và thông báo đối thủ.
+     */
+    private void onAppExit() {
+        if (game == null || viewOnly)
+            return;
+
+        // Dừng timer
+        if (gameTimer != null) {
+            gameTimer.stop();
+        }
+
+        // Lưu trạng thái game
+        game.setBlackTimeMs(blackTimeMs);
+        game.setWhiteTimeMs(whiteTimeMs);
+        game.setCapturedByBlack(capturedByBlack);
+        game.setCapturedByWhite(capturedByWhite);
+        game.setStatus(GameStatus.PAUSED);
+        GameHistoryStorage.upsert(game);
+
+        // Thông báo cho đối thủ (đồng bộ vì app đang đóng)
+        try {
+            P2PNode node = P2PContext.getInstance().getOrCreateNode();
+            User localUser = node.getLocalUser();
+            String myId = localUser != null ? localUser.getUserId() : null;
+
+            User rival = null;
+            if (myId != null && myId.equals(game.getUserId())) {
+                rival = game.getRivalUser();
+            } else {
+                rival = game.getHostUser();
+            }
+
+            if (rival != null && localUser != null) {
+                IGoGameService remote = GoGameServiceImpl.getStub(rival);
+                remote.notifyGamePaused(game.getGameId(), localUser, "EXIT", blackTimeMs, whiteTimeMs);
+            }
+        } catch (Exception e) {
+            System.out.println("[RMI] Không thể thông báo cho đối thủ khi thoát app: " + e.getMessage());
         }
     }
 

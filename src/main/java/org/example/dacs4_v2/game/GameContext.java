@@ -45,4 +45,33 @@ public class GameContext {
             listener.accept(move);
         }
     }
+
+    // ==================== XỬ LÝ THOÁT APP ====================
+
+    // Callback để GameController cung cấp logic thoát game
+    private Runnable exitCallback;
+
+    /**
+     * Đăng ký callback để xử lý khi app thoát trong khi đang chơi game.
+     * GameController sẽ gọi method này khi initialize.
+     */
+    public synchronized void setExitCallback(Runnable callback) {
+        this.exitCallback = callback;
+    }
+
+    /**
+     * Xử lý khi app bị đóng trong khi đang chơi game.
+     * Được gọi từ HelloApplication.onCloseRequest.
+     */
+    public synchronized void handleAppExit() {
+        // Gọi callback nếu có (GameController đã đăng ký)
+        if (exitCallback != null) {
+            exitCallback.run();
+        }
+
+        // Clear context
+        currentGame = null;
+        moveListener = null;
+        exitCallback = null;
+    }
 }

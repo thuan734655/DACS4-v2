@@ -86,7 +86,8 @@ public class RoomsController {
 
         gamesFlow.getChildren().clear();
 
-        String query = searchField != null && searchField.getText() != null ? searchField.getText().trim().toLowerCase() : "";
+        String query = searchField != null && searchField.getText() != null ? searchField.getText().trim().toLowerCase()
+                : "";
 
         P2PNode node = P2PContext.getInstance().getNode();
         String myId = node != null && node.getLocalUser() != null ? node.getLocalUser().getUserId() : null;
@@ -97,7 +98,8 @@ public class RoomsController {
             }
 
             String name = g.getNameGame() != null ? g.getNameGame() : "-";
-            if (!query.isEmpty() && !name.toLowerCase().contains(query) && (g.getGameId() == null || !g.getGameId().toLowerCase().contains(query))) {
+            if (!query.isEmpty() && !name.toLowerCase().contains(query)
+                    && (g.getGameId() == null || !g.getGameId().toLowerCase().contains(query))) {
                 continue;
             }
 
@@ -107,7 +109,8 @@ public class RoomsController {
         if (gamesFlow.getChildren().isEmpty()) {
             VBox empty = new VBox(8);
             empty.setPrefWidth(680);
-            empty.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+            empty.setStyle(
+                    "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
             Label msg = new Label("Không có game nào");
             msg.setStyle("-fx-text-fill: #6b7280; -fx-font-style: italic;");
             empty.getChildren().add(msg);
@@ -118,9 +121,11 @@ public class RoomsController {
     private VBox buildGameCard(Game g, String myId) {
         VBox card = new VBox(12);
         card.setPrefWidth(340);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
+        card.setStyle(
+                "-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);");
 
-        String displayName = (g.getNameGame() != null && !g.getNameGame().isEmpty()) ? g.getNameGame() : ("Game " + safe(g.getGameId()));
+        String displayName = (g.getNameGame() != null && !g.getNameGame().isEmpty()) ? g.getNameGame()
+                : ("Game " + safe(g.getGameId()));
         Label title = new Label(displayName);
         title.setStyle("-fx-font-size: 16; -fx-font-weight: bold;");
 
@@ -136,15 +141,15 @@ public class RoomsController {
         String boardText = g.getBoardSize() > 0 ? (g.getBoardSize() + "x" + g.getBoardSize()) : "-";
 
         User opp = resolveOpponent(g, myId);
-        String oppName = opp != null && opp.getName() != null && !opp.getName().isEmpty() ? opp.getName() : (opp != null ? safe(opp.getUserId()) : "-");
+        String oppName = opp != null && opp.getName() != null && !opp.getName().isEmpty() ? opp.getName()
+                : (opp != null ? safe(opp.getUserId()) : "-");
 
         HBox meta = new HBox(16);
         meta.setStyle("-fx-text-fill: #6b7280; -fx-font-size: 12;");
         meta.getChildren().addAll(
                 new Label("Time: " + timeText),
                 new Label("Board: " + boardText),
-                new Label("Opponent: " + oppName)
-        );
+                new Label("Opponent: " + oppName));
 
         Button btnPlay = new Button("Play");
         btnPlay.setMaxWidth(Double.MAX_VALUE);
@@ -159,10 +164,25 @@ public class RoomsController {
         HBox.setHgrow(btnView, Priority.ALWAYS);
         actions.getChildren().addAll(btnPlay, btnView);
 
+        // Xử lý nút Play/Resume dựa trên status
         boolean canPlay = g.getStatus() == GameStatus.PLAYING;
-        btnPlay.setDisable(!canPlay);
-        if (!canPlay) {
+        boolean canResume = g.getStatus() == GameStatus.PAUSED;
+
+        if (canPlay) {
+            // Game đang chơi: nút Play bình thường
+            btnPlay.setText("Play");
+            btnPlay.setStyle("-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;");
+            btnPlay.setDisable(false);
+        } else if (canResume) {
+            // Game tạm dừng: nút Resume với màu cam
+            btnPlay.setText("Resume");
+            btnPlay.setStyle("-fx-background-color: #f59e0b; -fx-text-fill: white; -fx-background-radius: 999;");
+            btnPlay.setDisable(false);
+        } else {
+            // Các status khác: disable nút
+            btnPlay.setText("Play");
             btnPlay.setStyle("-fx-background-color: #cbd5e1; -fx-text-fill: white; -fx-background-radius: 999;");
+            btnPlay.setDisable(true);
         }
 
         btnView.setOnAction(e -> openGameView(g));
