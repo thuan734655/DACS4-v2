@@ -15,7 +15,7 @@
 
                 <ToggleButton text="Dashboard" maxWidth="Infinity" selected="true" onAction="#onGoDashboard"/>
                 <ToggleButton text="Play Game" maxWidth="Infinity"/>
-                <ToggleButton text="Rooms" maxWidth="Infinity" onAction="#onGoRooms"/>
+                <ToggleButton text="Games" maxWidth="Infinity" onAction="#onGoRooms"/>
                 <ToggleButton text="Statistics" maxWidth="Infinity"/>
 
                 <Pane VBox.vgrow="ALWAYS"/>
@@ -71,25 +71,25 @@
                         <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
                             <children>
                                 <Label text="Total Games" style="-fx-text-fill: #6b7280;"/>
-                                <Label text="234" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                                <Label fx:id="lblTotalGames" text="0" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
                             </children>
                         </VBox>
                         <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
                             <children>
                                 <Label text="Win Rate" style="-fx-text-fill: #6b7280;"/>
-                                <Label text="62%" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                                <Label fx:id="lblWinRate" text="-" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
                             </children>
                         </VBox>
                         <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
                             <children>
                                 <Label text="Current Rank" style="-fx-text-fill: #6b7280;"/>
-                                <Label text="5 Dan" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                                <Label fx:id="lblCurrentRank" text="-" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
                             </children>
                         </VBox>
                         <VBox alignment="CENTER" spacing="4" style="-fx-background-color: white; -fx-background-radius: 16; -fx-padding: 12;" HBox.hgrow="ALWAYS">
                             <children>
                                 <Label text="Online Friends" style="-fx-text-fill: #6b7280;"/>
-                                <Label text="12" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
+                                <Label fx:id="lblOnlineFriends" text="0" style="-fx-font-size: 20; -fx-font-weight: bold;"/>
                             </children>
                         </VBox>
                     </children>

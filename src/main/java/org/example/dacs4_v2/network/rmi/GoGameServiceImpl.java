@@ -28,7 +28,31 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     private final ConcurrentHashMap<String, Game> activeGames = new ConcurrentHashMap<>();
     private final List<Game> gameHistory = new ArrayList<>();
 
+    private Game resolveGameForResume(String gameId) {
+        if (gameId == null || gameId.isEmpty()) {
+            return null;
+        }
+        Game cached = activeGames.get(gameId);
+        if (cached != null) {
+            return cached;
+        }
+        List<Game> history = GameHistoryStorage.loadHistory(0);
+        if (history == null) {
+            return null;
+        }
+        for (Game g : history) {
+            if (g != null && gameId.equals(g.getGameId())) {
+                activeGames.put(gameId, g);
+                return g;
+            }
+        }
+        return null;
+    }
+
     private static User snapshotUser(User u) {
+        // Lưu/trao đổi User snapshot (không kèm neighbors) để:
+        // - Tránh serialize graph neighbors quá lớn qua RMI/Gson
+        // - Tránh vòng tham chiếu khi persist history
         if (u == null) {
             return null;
         }
@@ -162,6 +186,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     public void registerOutgoingGame(Game game) {
+        // Host tạo game và lưu local ngay lập tức để có record lịch sử (INVITE_SENT) kể cả đối thủ offline.
         if (game == null || game.getGameId() == null) {
             return;
         }
@@ -173,6 +198,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     public void inviteToGame(Game game) throws RemoteException {
         System.out.println("[RMI] Nhận lời mời vào game: " + (game != null ? game.getGameId() : "null"));
         if (game != null) {
+            // Receiver nhận invite -> lưu record + chờ user accept/decline.
             game.setStatus(GameStatus.INVITE_RECEIVED);
             if (game.getCreatedAt() <= 0) {
                 game.setCreatedAt(System.currentTimeMillis());
@@ -180,6 +206,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             if (game.getRivalUser() == null) {
                 game.setRivalUser(snapshotUser(localUser));
             }
+
             activeGames.put(game.getGameId(), game);
             GameHistoryStorage.upsert(game);
         }
@@ -198,6 +225,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
                 if (btn == ButtonType.OK) {
                     System.out.println("[UI] User accepted invite for game " + game.getGameId());
                     try {
+                        // Receiver accept -> callback host (handshake bước 1). Chưa mở game, chờ host confirm.
                         game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
                         game.setAcceptedAt(System.currentTimeMillis());
                         GameHistoryStorage.upsert(game);
@@ -213,6 +241,7 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
                 } else {
                     System.out.println("[UI] User declined invite for game " + game.getGameId());
                     try {
+                        // Receiver decline -> callback host để host update history và dừng chờ.
                         game.setStatus(GameStatus.DECLINED);
                         GameHistoryStorage.upsert(game);
 
@@ -241,8 +270,10 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         User responderSnapshot = snapshotUser(responder);
 
         if (!accepted) {
+            // Host nhận decline -> đóng flow.
             game.setStatus(GameStatus.DECLINED);
             game.setEndedAt(System.currentTimeMillis());
+
             if (responderSnapshot != null) {
                 game.setRivalUser(responderSnapshot);
             }
@@ -260,12 +291,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
         game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
         game.setAcceptedAt(System.currentTimeMillis());
+
         if (responderSnapshot != null) {
             game.setRivalUser(responderSnapshot);
         }
         GameHistoryStorage.upsert(game);
 
         Platform.runLater(() -> {
+            // Host confirm bước 2: start/cancel.
             String msg = "Opponent accepted invite for game " + gameId + ". Start now?";
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
             alert.setTitle("Start game");
@@ -274,12 +307,16 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
                 boolean start = btn == ButtonType.OK;
                 try {
                     if (start) {
+                        // Start: host vào game và thông báo receiver vào game.
                         game.setStatus(GameStatus.PLAYING);
                         game.setStartedAt(System.currentTimeMillis());
+
                         GameHistoryStorage.upsert(game);
                         GameContext.getInstance().setCurrentGame(game);
+                        GameContext.getInstance().setViewOnly(false);
                         HelloApplication.navigateTo("game.fxml");
                     } else {
+                        // Cancel: host không chơi -> notify receiver để receiver thoát trạng thái chờ.
                         game.setStatus(GameStatus.CANCELED);
                         game.setEndedAt(System.currentTimeMillis());
                         GameHistoryStorage.upsert(game);
@@ -305,8 +342,10 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
 
         if (!start) {
+            // Receiver nhận cancel từ host.
             game.setStatus(GameStatus.CANCELED);
             game.setEndedAt(System.currentTimeMillis());
+
             GameHistoryStorage.upsert(game);
             activeGames.remove(gameId);
 
@@ -325,18 +364,103 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
         Platform.runLater(() -> {
             GameContext.getInstance().setCurrentGame(game);
+            GameContext.getInstance().setViewOnly(false);
             HelloApplication.navigateTo("game.fxml");
         });
     }
 
-    public void joinRequest(User requester, String gameId) throws RemoteException {
-        Game game = activeGames.get(gameId);
-        if (game != null && (game.getRivalId() == null || game.getRivalId().isEmpty())) {
-            game.setRivalId(requester.getUserId());
-            // Gửi game state ban đầu
-            // requesterService.onGameStart(game);
-            System.out.println("[RMI] Chấp nhận join từ: " + requester.getUserId());
+    @Override
+    public void requestResume(String gameId, User requester) throws RemoteException {
+        Game game = resolveGameForResume(gameId);
+        if (game == null) {
+            return;
         }
+
+        User requesterSnapshot = snapshotUser(requester);
+        Platform.runLater(() -> {
+            String msg = "Opponent requests to resume game " + gameId + ". Accept?";
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+            alert.setTitle("Resume game");
+            alert.setHeaderText(null);
+            alert.showAndWait().ifPresent(btn -> {
+                boolean accepted = btn == ButtonType.OK;
+                try {
+                    if (requesterSnapshot != null) {
+                        IGoGameService stub = getStub(requesterSnapshot);
+                        stub.onResumeResponse(gameId, snapshotUser(localUser), accepted);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+        });
+    }
+
+    @Override
+    public void onResumeResponse(String gameId, User responder, boolean accepted) throws RemoteException {
+        Game game = resolveGameForResume(gameId);
+        if (game == null) {
+            return;
+        }
+
+        User responderSnapshot = snapshotUser(responder);
+        if (!accepted) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined resume for game " + gameId, ButtonType.OK);
+                alert.setTitle("Resume declined");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+            });
+            return;
+        }
+
+        Platform.runLater(() -> {
+            String msg = "Opponent accepted resume for game " + gameId + ". Start now?";
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+            alert.setTitle("Resume game");
+            alert.setHeaderText(null);
+            alert.showAndWait().ifPresent(btn -> {
+                boolean start = btn == ButtonType.OK;
+                try {
+                    if (start) {
+                        GameContext.getInstance().setCurrentGame(game);
+                        GameContext.getInstance().setViewOnly(false);
+                        HelloApplication.navigateTo("game.fxml");
+                    }
+
+                    if (responderSnapshot != null) {
+                        IGoGameService stub = getStub(responderSnapshot);
+                        stub.onResumeDecision(gameId, start);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            });
+        });
+    }
+
+    @Override
+    public void onResumeDecision(String gameId, boolean start) throws RemoteException {
+        Game game = resolveGameForResume(gameId);
+        if (game == null) {
+            return;
+        }
+
+        if (!start) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent canceled resume for game " + gameId, ButtonType.OK);
+                alert.setTitle("Resume canceled");
+                alert.setHeaderText(null);
+                alert.showAndWait();
+            });
+            return;
+        }
+
+        Platform.runLater(() -> {
+            GameContext.getInstance().setCurrentGame(game);
+            GameContext.getInstance().setViewOnly(false);
+            HelloApplication.navigateTo("game.fxml");
+        });
     }
 
     @Override
@@ -346,8 +470,10 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             game = activeGames.get(move.getGameId());
         }
         if (game != null) {
+            // Nhận move từ remote -> append vào game + notify UI + persist history.
             game.addMove(move);
             System.out.println("[RMI] Nhận nước đi: " + move);
+
             GameContext.getInstance().setCurrentGame(game);
             GameContext.getInstance().notifyMoveReceived(move);
             GameHistoryStorage.upsert(game);

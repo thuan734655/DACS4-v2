@@ -11,6 +11,8 @@ public class GameHistoryStorage {
     private static final String GAME_HISTORY_FILE = "game_history.json";
 
     public static synchronized void upsert(Game game) {
+        // Lưu lịch sử game local vào data/game_history.json.
+        // "Upsert" = nếu đã tồn tại gameId thì replace, nếu chưa thì add lên đầu danh sách.
         if (game == null || game.getGameId() == null) {
             return;
         }
@@ -40,6 +42,7 @@ public class GameHistoryStorage {
     }
 
     public static synchronized List<Game> loadHistory(int limit) {
+        // Load history đã lưu local (không gọi mạng).
         GameHistory history = DataStorage.load(GAME_HISTORY_FILE, GameHistory.class);
         if (history == null || history.getGames() == null) {
             return new ArrayList<>();

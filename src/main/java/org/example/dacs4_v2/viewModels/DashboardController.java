@@ -14,7 +14,10 @@ import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.example.dacs4_v2.HelloApplication;
+import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.data.UserStorage;
+import org.example.dacs4_v2.models.Game;
+import org.example.dacs4_v2.models.GameStatus;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
@@ -30,6 +33,18 @@ public class DashboardController {
     @FXML
     private VBox playersContainer;
 
+    @FXML
+    private Label lblTotalGames;
+
+    @FXML
+    private Label lblWinRate;
+
+    @FXML
+    private Label lblCurrentRank;
+
+    @FXML
+    private Label lblOnlineFriends;
+
     private HBox predecessorCard;
     private HBox successorCard;
     private Label predecessorAvatarLabel;
@@ -43,27 +58,16 @@ public class DashboardController {
 
     @FXML
     public void initialize() {
-        String name = null;
-        String peerId = null;
-
-        User user = UserStorage.loadUser();
-        if (user != null) {
-            name = user.getName();
-            peerId = user.getUserId();
-        }
-        if (name == null || name.isEmpty()) {
-            name = "Guest";
-        }
-        if (peerId == null || peerId.isEmpty()) {
-            peerId = "-";
-        }
-        if (lblUserInfo != null) {
-            lblUserInfo.setText(name + " (" + peerId + ")");
-        }
+        // Header hiển thị user hiện tại. Ưu tiên lấy từ node (runtime) nếu đã start.
+        updateHeaderUserInfo(UserStorage.loadUser());
 
         try {
             P2PNode node = P2PContext.getInstance().getOrCreateNode();
             node.start();
+
+            // Sau khi start node, update lại header/stats bằng dữ liệu thật từ node.
+            updateHeaderUserInfo(node.getLocalUser());
+            updateStats(node);
 
             ensureNeighborCards();
             applyNeighborToCard(node.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel, predecessorRankLabel);
@@ -75,6 +79,9 @@ public class DashboardController {
                 ensureNeighborCards();
                 applyNeighborToCard(n.getPredecessor(), predecessorAvatarLabel, predecessorNameLabel, predecessorRankLabel);
                 applyNeighborToCard(n.getSuccessor(), successorAvatarLabel, successorNameLabel, successorRankLabel);
+
+                // Neighbors thay đổi => online count cũng thay đổi.
+                updateStats(n);
             }));
 
             P2PContext.getInstance().requestNeighborUiUpdate();
@@ -83,6 +90,71 @@ public class DashboardController {
         }
 
         refreshOnlinePlayers();
+    }
+
+    private void updateHeaderUserInfo(User user) {
+        String name = user != null ? user.getName() : null;
+        String peerId = user != null ? user.getUserId() : null;
+        if (name == null || name.isEmpty()) {
+            name = "Guest";
+        }
+        if (peerId == null || peerId.isEmpty()) {
+            peerId = "-";
+        }
+        if (lblUserInfo != null) {
+            lblUserInfo.setText(name + " (" + peerId + ")");
+        }
+    }
+
+    private void updateStats(P2PNode node) {
+        // Total games lấy từ lịch sử local (data/game_history.json)
+        List<Game> games = GameHistoryStorage.loadHistory(0);
+        int total = games != null ? games.size() : 0;
+        if (lblTotalGames != null) {
+            lblTotalGames.setText(String.valueOf(total));
+        }
+
+        // Win rate: hiện chưa có result/winner nên chỉ có thể show "-" hoặc tỉ lệ FINISHED.
+        if (lblWinRate != null) {
+            int finished = 0;
+            if (games != null) {
+                for (Game g : games) {
+                    if (g != null && g.getStatus() == GameStatus.FINISHED) {
+                        finished++;
+                    }
+                }
+            }
+            lblWinRate.setText(total <= 0 ? "-" : (finished * 100 / total) + "%");
+        }
+
+        // Current rank lấy từ user đang chạy.
+        User me = node != null ? node.getLocalUser() : null;
+        if (lblCurrentRank != null) {
+            int rank = me != null ? me.getRank() : 0;
+            lblCurrentRank.setText(rank <= 0 ? "-" : String.valueOf(rank));
+        }
+
+        // Online Friends: hiện dự án chưa maintain full list peers online; dùng neighbors hiện tại làm số liệu thật.
+        if (lblOnlineFriends != null) {
+            int online = countOnlineNeighbors(node);
+            lblOnlineFriends.setText(String.valueOf(online));
+        }
+    }
+
+    private int countOnlineNeighbors(P2PNode node) {
+        if (node == null || node.getLocalUser() == null) {
+            return 0;
+        }
+        String myId = node.getLocalUser().getUserId();
+        User pred = node.getPredecessor();
+        User succ = node.getSuccessor();
+
+        boolean predOk = pred != null && pred.getUserId() != null && !pred.getUserId().equals(myId);
+        boolean succOk = succ != null && succ.getUserId() != null && !succ.getUserId().equals(myId);
+        if (predOk && succOk && pred.getUserId().equals(succ.getUserId())) {
+            return 1;
+        }
+        return (predOk ? 1 : 0) + (succOk ? 1 : 0);
     }
 
     private void ensureNeighborCards() {
@@ -282,6 +354,7 @@ public class DashboardController {
     }
 
     private void refreshOnlinePlayers() {
+        // Broadcast ASK_ONLINE để tìm peer entry, từ đó join ring => cập nhật successor/predecessor.
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
@@ -294,7 +367,7 @@ public class DashboardController {
 
     @FXML
     private void onRefreshOnline() {
-//        refreshOnlinePlayers();
+        refreshOnlinePlayers();
     }
 
     private void updatePlayersUI(List<User> players) {

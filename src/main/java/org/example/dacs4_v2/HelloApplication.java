@@ -67,6 +67,7 @@ public class HelloApplication extends Application {
         }
         try {
             if ("game.fxml".equals(fxmlName)) {
+                // Game screen phụ thuộc GameContext.currentGame; không cache để mỗi ván tạo controller/UI mới.
                 viewCache.remove(fxmlName);
             }
             Parent root = loadFXML(fxmlName);

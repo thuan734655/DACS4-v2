@@ -6,6 +6,7 @@ public class Moves implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private int order;
+    // "BLACK" hoặc "WHITE" (dùng để render / xác định màu khi nhận move)
     private String player;
     private int x;
     private int y;

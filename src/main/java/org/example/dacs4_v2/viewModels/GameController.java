@@ -33,6 +33,7 @@ public class GameController {
     private Game game;
     private String localPlayerId;
     private boolean isBlack;
+    private boolean viewOnly;
     private int[][] board;
     private int[][] prevBoard;
     private int boardSize;
@@ -40,6 +41,7 @@ public class GameController {
     @FXML
     public void initialize() {
         game = GameContext.getInstance().getCurrentGame();
+        viewOnly = GameContext.getInstance().isViewOnly();
         if (game == null) {
             // Không có game hiện tại, quay về dashboard
             HelloApplication.navigateTo("dashboard.fxml");
@@ -66,7 +68,11 @@ public class GameController {
             lblGameInfo.setText("Game " + game.getGameId() + " - " + game.getNameGame());
         }
         if (lblPlayerColor != null) {
-            lblPlayerColor.setText(isBlack ? "You are BLACK" : "You are WHITE");
+            if (viewOnly) {
+                lblPlayerColor.setText("View mode");
+            } else {
+                lblPlayerColor.setText(isBlack ? "You are BLACK" : "You are WHITE");
+            }
         }
         if (lblKomi != null) {
             lblKomi.setText("Komi: " + komi);
@@ -91,13 +97,31 @@ public class GameController {
             board = new int[boardSize][boardSize];
         }
         prevBoard = null;
+
+        // Khi load game từ history, dựng lại trạng thái board dựa trên moves đã lưu.
+        if (game.getMoves() != null && !game.getMoves().isEmpty()) {
+            board = new int[boardSize][boardSize];
+            prevBoard = null;
+            for (Moves m : game.getMoves()) {
+                if (m == null) {
+                    continue;
+                }
+                int mx = m.getX();
+                int my = m.getY();
+                int color = "BLACK".equals(m.getPlayer()) ? 1 : 2;
+                applyMoveWithRules(mx, my, color, false);
+            }
+        }
         redrawBoard();
 
-        GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
+        if (!viewOnly) {
+            GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
+        }
     }
 
     private void onCellClicked(int x, int y, Button cell) {
         if (game == null) return;
+        if (viewOnly) return;
         if (board != null && board[x][y] != 0) return;
 
         String currentTurnId = game.getCurrentPlayerId();
@@ -114,6 +138,7 @@ public class GameController {
         String playerColor = isBlack ? "BLACK" : "WHITE";
         Moves move = new Moves(order, playerColor, x, y, game.getGameId());
 
+        // Persist local trước để history/board luôn nhất quán, kể cả khi gửi RMI lỗi.
         game.addMove(move);
         GameHistoryStorage.upsert(game);
 
@@ -130,6 +155,7 @@ public class GameController {
                     rival = game.getHostUser();
                 }
                 if (rival != null) {
+                    // Gửi move trực tiếp sang peer đối thủ (remote RMI). Không gọi local service để tránh duplicate.
                     IGoGameService remote = GoGameServiceImpl.getStub(rival);
                     remote.submitMove(move, order);
                 }

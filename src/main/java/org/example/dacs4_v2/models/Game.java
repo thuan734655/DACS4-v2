@@ -15,12 +15,15 @@ public class Game implements Serializable {
     private int komi;
     private String nameGame;
 
+    // Trạng thái handshake/game để lưu lịch sử.
     private GameStatus status;
+    // Timestamps để audit/lịch sử (epoch millis).
     private long createdAt;
     private long acceptedAt;
     private long startedAt;
     private long endedAt;
 
+    // Snapshot User dùng cho RMI/history (không nên chứa neighbors).
     private User hostUser;
     private User rivalUser;
 
@@ -88,6 +91,7 @@ public class Game implements Serializable {
     }
 
     public double getKomiAsDouble() {
+        // komi lưu dạng *10 để tránh double (6.5 -> 65)
         return komi / 10.0;
     }
 
@@ -174,6 +178,7 @@ public class Game implements Serializable {
     }
 
     public String getCurrentPlayerId() {
+        // Lượt đi: userId (đen) đi trước, sau đó xen kẽ theo số lượng moves.
         if (userId == null) {
             return null;
         }

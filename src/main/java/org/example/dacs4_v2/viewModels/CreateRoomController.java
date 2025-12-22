@@ -106,12 +106,14 @@ public class CreateRoomController {
             String rivalId = opponentPeerId;
 
             Game game = new Game(gameId, hostPeerId, userId, rivalId, boardSize, komiInt, name);
+            // Host tạo record lịch sử ngay khi gửi invite.
             game.setStatus(GameStatus.INVITE_SENT);
             game.setCreatedAt(System.currentTimeMillis());
+            // Lưu snapshot User (không lưu neighbors) để tránh serialize graph lớn vào history/RMI.
             User hostSnapshot = new User(local.getHost(), local.getName(), local.getPort(), local.getRank(), local.getServiceName(), local.getUserId());
             game.setHostUser(hostSnapshot);
 
-            // Lookup đối thủ qua DHT
+            // Lookup đối thủ qua DHT (Chord-lite) để biết host/port/serviceName của peer đích.
             IGoGameService localService = node.getService();
             if (localService == null) {
                 setStatus("Service not ready");
@@ -128,6 +130,7 @@ public class CreateRoomController {
             GameHistoryStorage.upsert(game);
 
             if (localService instanceof GoGameServiceImpl impl) {
+                // Đăng ký game vào service local để host có thể nhận callback accept/decline sau này.
                 impl.registerOutgoingGame(game);
             }
 

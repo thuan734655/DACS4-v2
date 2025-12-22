@@ -10,6 +10,7 @@ public class GameContext {
 
     private Game currentGame;
     private Consumer<Moves> moveListener;
+    private boolean viewOnly;
 
     private GameContext() {
     }
@@ -24,6 +25,14 @@ public class GameContext {
 
     public synchronized Game getCurrentGame() {
         return currentGame;
+    }
+
+    public synchronized void setViewOnly(boolean viewOnly) {
+        this.viewOnly = viewOnly;
+    }
+
+    public synchronized boolean isViewOnly() {
+        return viewOnly;
     }
 
     public synchronized void setMoveListener(Consumer<Moves> listener) {
