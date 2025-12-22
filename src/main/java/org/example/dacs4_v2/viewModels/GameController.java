@@ -19,6 +19,7 @@ import javafx.scene.paint.Stop;
 import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.game.GameContext;
+import org.example.dacs4_v2.game.GoGameLogic;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.GameStatus;
 import org.example.dacs4_v2.models.Moves;
@@ -28,9 +29,13 @@ import org.example.dacs4_v2.network.P2PNode;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
+/**
+ * Controller cho màn hình chơi game cờ vây.
+ * Chỉ chứa logic UI, logic luật chơi được tách ra GoGameLogic.
+ */
 public class GameController {
 
-    // Header
+    // ==================== FXML COMPONENTS - HEADER ====================
     @FXML
     private Label lblGameName;
     @FXML
@@ -38,7 +43,7 @@ public class GameController {
     @FXML
     private Label lblTurnIndicator;
 
-    // Black Player Panel
+    // ==================== FXML COMPONENTS - PANEL QUÂN ĐEN ====================
     @FXML
     private VBox panelBlack;
     @FXML
@@ -54,7 +59,7 @@ public class GameController {
     @FXML
     private Label lblBlackTurn;
 
-    // White Player Panel
+    // ==================== FXML COMPONENTS - PANEL QUÂN TRẮNG ====================
     @FXML
     private VBox panelWhite;
     @FXML
@@ -70,13 +75,13 @@ public class GameController {
     @FXML
     private Label lblWhiteTurn;
 
-    // Board
+    // ==================== FXML COMPONENTS - BÀN CỜ ====================
     @FXML
     private StackPane boardContainer;
     @FXML
     private Canvas boardCanvas;
 
-    // Control Buttons
+    // ==================== FXML COMPONENTS - NÚT ĐIỀU KHIỂN ====================
     @FXML
     private Button btnPass;
     @FXML
@@ -84,35 +89,38 @@ public class GameController {
     @FXML
     private Button btnExit;
 
-    // Game state
-    private Game game;
-    private String localPlayerId;
-    private boolean isBlack;
-    private boolean viewOnly;
-    private int[][] board;
-    private int[][] prevBoard;
-    private int boardSize;
+    // ==================== TRẠNG THÁI GAME ====================
+    private Game game; // Đối tượng Game hiện tại
+    private GoGameLogic gameLogic; // Logic luật cờ vây (tách riêng)
+    private String localPlayerId; // ID người chơi local
+    private boolean isBlack; // true nếu local player là quân đen
+    private boolean viewOnly; // true nếu chỉ xem, không chơi
 
-    // Board rendering
-    private double cellSize;
-    private double padding;
-    private double boardPixelSize;
+    // ==================== CÀI ĐẶT VẼ BÀN CỜ ====================
+    private double cellSize; // Kích thước mỗi ô
+    private double padding; // Khoảng cách viền
+    private double boardPixelSize; // Kích thước bàn cờ (pixel)
 
-    // Captured stones count (sẽ load từ game khi resume)
-    private int capturedByBlack = 0;
-    private int capturedByWhite = 0;
+    // ==================== QUÂN BỊ BẮT ====================
+    private int capturedByBlack = 0; // Số quân trắng bị đen bắt
+    private int capturedByWhite = 0; // Số quân đen bị trắng bắt
 
-    // Timer (sẽ load từ game khi resume)
-    private long blackTimeMs;
-    private long whiteTimeMs;
-    private long lastTickTime;
-    private AnimationTimer gameTimer;
+    // ==================== TIMER ====================
+    private long blackTimeMs; // Thời gian còn lại của quân đen (ms)
+    private long whiteTimeMs; // Thời gian còn lại của quân trắng (ms)
+    private long lastTickTime; // Thời điểm tick cuối cùng
+    private AnimationTimer gameTimer; // Timer đếm ngược
+    private long turnStartTime; // Thời điểm bắt đầu lượt hiện tại
 
-    // Thời điểm bắt đầu lượt đi hiện tại (để tính thời gian suy nghĩ)
-    private long turnStartTime;
+    // ==================== KHỞI TẠO ====================
 
+    /**
+     * Khởi tạo màn hình game.
+     * Được gọi tự động bởi JavaFX sau khi load FXML.
+     */
     @FXML
     public void initialize() {
+        // Lấy game từ context
         game = GameContext.getInstance().getCurrentGame();
         viewOnly = GameContext.getInstance().isViewOnly();
 
@@ -129,8 +137,11 @@ public class GameController {
         capturedByBlack = game.getCapturedByBlack();
         capturedByWhite = game.getCapturedByWhite();
 
-        boardSize = game.getBoardSize();
+        // Khởi tạo game logic
+        int boardSize = game.getBoardSize();
+        gameLogic = new GoGameLogic(boardSize);
 
+        // Xác định ID người chơi local
         try {
             P2PNode node = P2PContext.getInstance().getOrCreateNode();
             localPlayerId = node.getLocalUser() != null ? node.getLocalUser().getUserId() : null;
@@ -138,61 +149,75 @@ public class GameController {
             e.printStackTrace();
         }
 
+        // Xác định màu quân của local player
         isBlack = localPlayerId != null && localPlayerId.equals(game.getUserId());
 
-        // Initialize board state
-        board = new int[boardSize][boardSize];
-        prevBoard = null;
-
-        // Setup UI
+        // Thiết lập giao diện
         setupHeader();
         setupPlayerPanels();
         setupBoard();
 
-        // Replay moves from history
-        if (game.getMoves() != null && !game.getMoves().isEmpty()) {
-            for (Moves m : game.getMoves()) {
-                if (m == null)
-                    continue;
-                int color = "BLACK".equals(m.getPlayer()) ? 1 : 2;
-                applyMoveWithRules(m.getX(), m.getY(), color, false);
-            }
-        }
+        // Replay các nước đi từ lịch sử (nếu resume game)
+        replayMovesFromHistory();
 
-        // Draw initial board
+        // Vẽ bàn cờ ban đầu
         drawBoard();
         updateTurnIndicator();
         updateCapturedStones();
 
-        // Setup move listener
+        // Thiết lập listener nhận nước đi từ đối thủ
         if (!viewOnly) {
             GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
-            turnStartTime = System.currentTimeMillis(); // Ghi nhận thời điểm bắt đầu lượt
+            turnStartTime = System.currentTimeMillis();
             startTimer();
         }
 
-        // Disable controls in view-only mode
+        // Vô hiệu hóa nút nếu chỉ xem
         if (viewOnly) {
             btnPass.setDisable(true);
             btnSurrender.setDisable(true);
         }
     }
 
+    /**
+     * Replay các nước đi từ lịch sử game (dùng khi resume).
+     */
+    private void replayMovesFromHistory() {
+        if (game.getMoves() == null || game.getMoves().isEmpty()) {
+            return;
+        }
+
+        for (Moves m : game.getMoves()) {
+            if (m == null || m.getX() < 0 || m.getY() < 0)
+                continue; // Bỏ qua pass moves
+            int color = "BLACK".equals(m.getPlayer()) ? 1 : 2;
+            gameLogic.applyMove(m.getX(), m.getY(), color, false);
+        }
+    }
+
+    // ==================== THIẾT LẬP GIAO DIỆN ====================
+
+    /**
+     * Thiết lập header (tên game, komi).
+     */
     private void setupHeader() {
         String gameName = game.getNameGame() != null ? game.getNameGame() : "";
         lblGameName.setText("Game " + game.getGameId() + " - " + gameName);
         lblKomi.setText("Komi: " + game.getKomiAsDouble());
     }
 
+    /**
+     * Thiết lập thông tin 2 panel người chơi.
+     */
     private void setupPlayerPanels() {
         User hostUser = game.getHostUser();
         User rivalUser = game.getRivalUser();
 
-        // Determine who is black and who is white
-        User blackPlayer = hostUser; // Host plays black (userId)
+        // Host chơi quân đen, Rival chơi quân trắng
+        User blackPlayer = hostUser;
         User whitePlayer = rivalUser;
 
-        // Black player info
+        // Thông tin người chơi đen
         if (blackPlayer != null) {
             String name = blackPlayer.getName() != null ? blackPlayer.getName() : "Player 1";
             lblBlackName.setText(name);
@@ -200,7 +225,7 @@ public class GameController {
             lblBlackRank.setText("Rank: " + (blackPlayer.getRank() > 0 ? blackPlayer.getRank() : "-"));
         }
 
-        // White player info
+        // Thông tin người chơi trắng
         if (whitePlayer != null) {
             String name = whitePlayer.getName() != null ? whitePlayer.getName() : "Player 2";
             lblWhiteName.setText(name);
@@ -208,7 +233,7 @@ public class GameController {
             lblWhiteRank.setText("Rank: " + (whitePlayer.getRank() > 0 ? whitePlayer.getRank() : "-"));
         }
 
-        // Highlight local player's panel
+        // Highlight panel của người chơi local
         if (isBlack) {
             panelBlack.setStyle(
                     panelBlack.getStyle() + "-fx-border-color: #3b82f6; -fx-border-width: 3; -fx-border-radius: 0;");
@@ -218,59 +243,64 @@ public class GameController {
         }
     }
 
+    /**
+     * Thiết lập canvas bàn cờ.
+     */
     private void setupBoard() {
-        // Calculate board dimensions
         boardPixelSize = 500;
         padding = 25;
-        cellSize = (boardPixelSize - 2 * padding) / (boardSize - 1);
+        cellSize = (boardPixelSize - 2 * padding) / (gameLogic.getBoardSize() - 1);
 
-        // Setup canvas size
         boardCanvas.setWidth(boardPixelSize);
         boardCanvas.setHeight(boardPixelSize);
 
-        // Add mouse click handler
+        // Thêm handler click chuột
         boardCanvas.setOnMouseClicked(this::onBoardClicked);
     }
 
+    // ==================== VẼ BÀN CỜ ====================
+
+    /**
+     * Vẽ toàn bộ bàn cờ: nền gỗ, lưới, star points, quân cờ.
+     */
     private void drawBoard() {
         GraphicsContext gc = boardCanvas.getGraphicsContext2D();
+        int boardSize = gameLogic.getBoardSize();
 
-        // Clear canvas
+        // Xóa canvas
         gc.clearRect(0, 0, boardPixelSize, boardPixelSize);
 
-        // Draw wood background
+        // Vẽ nền gỗ
         gc.setFill(Color.web("#dcb35c"));
         gc.fillRect(0, 0, boardPixelSize, boardPixelSize);
 
-        // Draw wood grain effect (simple lines)
+        // Vẽ vân gỗ
         gc.setStroke(Color.web("#c9a24d"));
         gc.setLineWidth(0.5);
         for (int i = 0; i < boardPixelSize; i += 15) {
             gc.strokeLine(0, i, boardPixelSize, i + 5);
         }
 
-        // Draw grid lines
+        // Vẽ lưới
         gc.setStroke(Color.web("#3d2914"));
         gc.setLineWidth(1.0);
-
         for (int i = 0; i < boardSize; i++) {
             double pos = padding + i * cellSize;
-            // Vertical lines
             gc.strokeLine(pos, padding, pos, padding + (boardSize - 1) * cellSize);
-            // Horizontal lines
             gc.strokeLine(padding, pos, padding + (boardSize - 1) * cellSize, pos);
         }
 
-        // Draw star points (hoshi)
+        // Vẽ star points (hoshi)
         gc.setFill(Color.web("#3d2914"));
-        int[] starPoints = getStarPoints();
+        int[] starPoints = gameLogic.getStarPoints();
         for (int i = 0; i < starPoints.length; i += 2) {
             double x = padding + starPoints[i] * cellSize;
             double y = padding + starPoints[i + 1] * cellSize;
             gc.fillOval(x - 4, y - 4, 8, 8);
         }
 
-        // Draw stones
+        // Vẽ quân cờ
+        int[][] board = gameLogic.getBoard();
         for (int y = 0; y < boardSize; y++) {
             for (int x = 0; x < boardSize; x++) {
                 if (board[x][y] != 0) {
@@ -279,38 +309,30 @@ public class GameController {
             }
         }
 
-        // Highlight last move
-        if (game.getMoves() != null && !game.getMoves().isEmpty()) {
-            Moves lastMove = game.getMoves().get(game.getMoves().size() - 1);
-            if (lastMove != null) {
-                double x = padding + lastMove.getX() * cellSize;
-                double y = padding + lastMove.getY() * cellSize;
-                gc.setStroke(Color.RED);
-                gc.setLineWidth(2);
-                gc.strokeOval(x - cellSize / 4, y - cellSize / 4, cellSize / 2, cellSize / 2);
-            }
-        }
+        // Highlight nước đi cuối
+        highlightLastMove(gc);
     }
 
+    /**
+     * Vẽ một quân cờ với hiệu ứng gradient và shadow.
+     */
     private void drawStone(GraphicsContext gc, int gridX, int gridY, boolean isBlackStone) {
         double x = padding + gridX * cellSize;
         double y = padding + gridY * cellSize;
         double radius = cellSize * 0.45;
 
-        // Stone shadow
+        // Bóng đổ
         gc.setFill(Color.rgb(0, 0, 0, 0.3));
         gc.fillOval(x - radius + 2, y - radius + 2, radius * 2, radius * 2);
 
-        // Stone base color
+        // Màu quân với gradient
         if (isBlackStone) {
-            // Black stone with gradient
             RadialGradient gradient = new RadialGradient(
                     0, 0, x - radius * 0.3, y - radius * 0.3, radius * 1.5, false, CycleMethod.NO_CYCLE,
                     new Stop(0, Color.web("#4a4a4a")),
                     new Stop(1, Color.web("#1a1a1a")));
             gc.setFill(gradient);
         } else {
-            // White stone with gradient
             RadialGradient gradient = new RadialGradient(
                     0, 0, x - radius * 0.3, y - radius * 0.3, radius * 1.5, false, CycleMethod.NO_CYCLE,
                     new Stop(0, Color.WHITE),
@@ -319,114 +341,118 @@ public class GameController {
         }
         gc.fillOval(x - radius, y - radius, radius * 2, radius * 2);
 
-        // Stone highlight
+        // Highlight
         gc.setFill(Color.rgb(255, 255, 255, isBlackStone ? 0.1 : 0.4));
         gc.fillOval(x - radius * 0.6, y - radius * 0.6, radius * 0.5, radius * 0.3);
     }
 
-    private int[] getStarPoints() {
-        if (boardSize == 9) {
-            return new int[] { 2, 2, 6, 2, 4, 4, 2, 6, 6, 6 };
-        } else if (boardSize == 13) {
-            return new int[] { 3, 3, 9, 3, 6, 6, 3, 9, 9, 9 };
-        } else if (boardSize == 19) {
-            return new int[] { 3, 3, 9, 3, 15, 3, 3, 9, 9, 9, 15, 9, 3, 15, 9, 15, 15, 15 };
-        }
-        return new int[0];
+    /**
+     * Highlight nước đi cuối cùng bằng vòng tròn đỏ.
+     */
+    private void highlightLastMove(GraphicsContext gc) {
+        if (game.getMoves() == null || game.getMoves().isEmpty())
+            return;
+
+        Moves lastMove = game.getMoves().get(game.getMoves().size() - 1);
+        if (lastMove == null || lastMove.getX() < 0)
+            return; // Bỏ qua pass
+
+        double x = padding + lastMove.getX() * cellSize;
+        double y = padding + lastMove.getY() * cellSize;
+        gc.setStroke(Color.RED);
+        gc.setLineWidth(2);
+        gc.strokeOval(x - cellSize / 4, y - cellSize / 4, cellSize / 2, cellSize / 2);
     }
 
+    // ==================== XỬ LÝ CLICK BÀN CỜ ====================
+
+    /**
+     * Xử lý khi người chơi click vào bàn cờ.
+     */
     private void onBoardClicked(MouseEvent event) {
         if (game == null || viewOnly)
             return;
 
-        // Convert mouse coordinates to grid position
-        double mouseX = event.getX();
-        double mouseY = event.getY();
+        // Chuyển đổi tọa độ chuột sang tọa độ lưới
+        int gridX = (int) Math.round((event.getX() - padding) / cellSize);
+        int gridY = (int) Math.round((event.getY() - padding) / cellSize);
 
-        int gridX = (int) Math.round((mouseX - padding) / cellSize);
-        int gridY = (int) Math.round((mouseY - padding) / cellSize);
-
-        // Validate grid position
-        if (gridX < 0 || gridX >= boardSize || gridY < 0 || gridY >= boardSize)
-            return;
-        if (board[gridX][gridY] != 0)
+        // Kiểm tra vị trí hợp lệ
+        if (!gameLogic.isValidPosition(gridX, gridY))
             return;
 
-        // Check if it's player's turn
+        // Kiểm tra lượt đi
         String currentTurnId = game.getCurrentPlayerId();
         if (localPlayerId == null || currentTurnId == null || !localPlayerId.equals(currentTurnId)) {
             return;
         }
 
+        // Áp dụng nước đi
         int color = isBlack ? 1 : 2;
-        int capturedBefore = countCaptured(color);
-
-        if (!applyMoveWithRules(gridX, gridY, color, true)) {
+        if (!gameLogic.applyMove(gridX, gridY, color, true)) {
             return;
         }
 
-        int capturedAfter = countCaptured(color);
-        int newCaptures = capturedAfter - capturedBefore;
+        // Cập nhật số quân bị bắt
         if (color == 1) {
-            capturedByBlack += newCaptures;
+            capturedByBlack += gameLogic.getLastCaptureCount();
         } else {
-            capturedByWhite += newCaptures;
+            capturedByWhite += gameLogic.getLastCaptureCount();
         }
 
-        // Tính thời gian suy nghĩ cho nước đi này
+        // Tính thời gian suy nghĩ
         long currentTime = System.currentTimeMillis();
         long thinkingTime = currentTime - turnStartTime;
-
-        // Lấy thời gian còn lại của người vừa đi
         long myTimeRemaining = isBlack ? blackTimeMs : whiteTimeMs;
 
-        // Create move với thông tin thời gian
+        // Tạo move với thông tin thời gian
         int order = game.getMoves() != null ? game.getMoves().size() + 1 : 1;
         String playerColor = isBlack ? "BLACK" : "WHITE";
         Moves move = new Moves(order, playerColor, gridX, gridY, game.getGameId(), myTimeRemaining, thinkingTime);
 
-        // Reset thời điểm bắt đầu lượt cho người tiếp theo
+        // Reset thời điểm cho lượt tiếp theo
         turnStartTime = currentTime;
 
-        // Cập nhật game state trước khi persist
+        // Lưu trạng thái game
+        saveGameState(move);
+
+        // Cập nhật giao diện
+        drawBoard();
+        updateTurnIndicator();
+        updateCapturedStones();
+
+        // Gửi nước đi cho đối thủ
+        sendMoveToOpponent(move, order);
+    }
+
+    /**
+     * Lưu trạng thái game vào storage.
+     */
+    private void saveGameState(Moves move) {
         game.addMove(move);
         game.setBlackTimeMs(blackTimeMs);
         game.setWhiteTimeMs(whiteTimeMs);
         game.setCapturedByBlack(capturedByBlack);
         game.setCapturedByWhite(capturedByWhite);
         GameHistoryStorage.upsert(game);
-
-        // Update UI
-        drawBoard();
-        updateTurnIndicator();
-        updateCapturedStones();
-
-        // Send to opponent
-        sendMoveToOpponent(move, order);
     }
 
-    private int countCaptured(int color) {
-        int count = 0;
-        for (int y = 0; y < boardSize; y++) {
-            for (int x = 0; x < boardSize; x++) {
-                if (board[x][y] == 0)
-                    count++;
-            }
-        }
-        return count;
-    }
-
+    /**
+     * Gửi nước đi cho đối thủ qua RMI.
+     */
     private void sendMoveToOpponent(Moves move, int order) {
         new Thread(() -> {
             try {
                 P2PNode node = P2PContext.getInstance().getOrCreateNode();
                 String myId = node.getLocalUser() != null ? node.getLocalUser().getUserId() : null;
+
                 User rival = null;
                 if (myId != null && myId.equals(game.getUserId())) {
                     rival = game.getRivalUser();
                 } else {
                     rival = game.getHostUser();
                 }
+
                 if (rival != null) {
                     IGoGameService remote = GoGameServiceImpl.getStub(rival);
                     remote.submitMove(move, order);
@@ -437,6 +463,11 @@ public class GameController {
         }, "submit-move-thread").start();
     }
 
+    // ==================== NHẬN NƯỚC ĐI TỪ ĐỐI THỦ ====================
+
+    /**
+     * Xử lý khi nhận nước đi từ đối thủ qua RMI.
+     */
     private void onRemoteMoveReceived(Moves move) {
         if (move == null || game == null)
             return;
@@ -447,53 +478,55 @@ public class GameController {
         int my = move.getY();
         int color = "BLACK".equals(move.getPlayer()) ? 1 : 2;
 
-        // Cập nhật thời gian của đối thủ từ move nhận được
+        // Cập nhật thời gian của đối thủ
         long opponentTimeRemaining = move.getPlayerTimeRemainingMs();
         if (opponentTimeRemaining > 0) {
             if (color == 1) {
-                // Đối thủ là BLACK, cập nhật blackTimeMs
                 blackTimeMs = opponentTimeRemaining;
             } else {
-                // Đối thủ là WHITE, cập nhật whiteTimeMs
                 whiteTimeMs = opponentTimeRemaining;
             }
-            // Cập nhật vào game để đồng bộ
             game.setBlackTimeMs(blackTimeMs);
             game.setWhiteTimeMs(whiteTimeMs);
         }
 
-        // Reset turnStartTime vì bây giờ là lượt của mình
+        // Reset thời điểm bắt đầu lượt của mình
         turnStartTime = System.currentTimeMillis();
 
-        int capturedBefore = countCaptured(color);
+        // Áp dụng nước đi (nếu không phải pass)
+        if (mx >= 0 && my >= 0) {
+            if (!gameLogic.applyMove(mx, my, color, false)) {
+                return;
+            }
 
-        if (!applyMoveWithRules(mx, my, color, false)) {
-            return;
+            // Cập nhật số quân bị bắt
+            if (color == 1) {
+                capturedByBlack += gameLogic.getLastCaptureCount();
+            } else {
+                capturedByWhite += gameLogic.getLastCaptureCount();
+            }
         }
 
-        int capturedAfter = countCaptured(color);
-        int newCaptures = capturedAfter - capturedBefore;
-        if (color == 1) {
-            capturedByBlack += newCaptures;
-        } else {
-            capturedByWhite += newCaptures;
-        }
-
-        // Cập nhật captured vào game
+        // Lưu trạng thái
         game.setCapturedByBlack(capturedByBlack);
         game.setCapturedByWhite(capturedByWhite);
         GameHistoryStorage.upsert(game);
 
+        // Cập nhật giao diện
         Platform.runLater(() -> {
             drawBoard();
             updateTurnIndicator();
             updateCapturedStones();
-            // Cập nhật hiển thị timer
             lblBlackTime.setText(formatTime(blackTimeMs));
             lblWhiteTime.setText(formatTime(whiteTimeMs));
         });
     }
 
+    // ==================== CẬP NHẬT GIAO DIỆN ====================
+
+    /**
+     * Cập nhật chỉ báo lượt đi.
+     */
     private void updateTurnIndicator() {
         String currentTurnId = game.getCurrentPlayerId();
         boolean blackTurn = currentTurnId != null && currentTurnId.equals(game.getUserId());
@@ -512,11 +545,19 @@ public class GameController {
         }
     }
 
+    /**
+     * Cập nhật số quân bị bắt trên giao diện.
+     */
     private void updateCapturedStones() {
         lblBlackCaptured.setText(String.valueOf(capturedByBlack));
         lblWhiteCaptured.setText(String.valueOf(capturedByWhite));
     }
 
+    // ==================== TIMER ====================
+
+    /**
+     * Bắt đầu timer đếm ngược.
+     */
     private void startTimer() {
         lastTickTime = System.currentTimeMillis();
         gameTimer = new AnimationTimer() {
@@ -526,9 +567,11 @@ public class GameController {
                 long delta = currentTime - lastTickTime;
                 lastTickTime = currentTime;
 
+                // Xác định ai đang đi
                 String currentTurnId = game.getCurrentPlayerId();
                 boolean blackTurn = currentTurnId != null && currentTurnId.equals(game.getUserId());
 
+                // Trừ thời gian của người đang đi
                 if (blackTurn) {
                     blackTimeMs -= delta;
                     if (blackTimeMs < 0)
@@ -539,11 +582,12 @@ public class GameController {
                         whiteTimeMs = 0;
                 }
 
+                // Cập nhật giao diện timer
                 Platform.runLater(() -> {
                     lblBlackTime.setText(formatTime(blackTimeMs));
                     lblWhiteTime.setText(formatTime(whiteTimeMs));
 
-                    // Highlight time when low
+                    // Highlight khi thời gian thấp (< 1 phút)
                     if (blackTimeMs < 60000) {
                         lblBlackTime.setStyle("-fx-font-size: 28; -fx-font-weight: bold; -fx-text-fill: #ef4444;");
                     }
@@ -556,6 +600,9 @@ public class GameController {
         gameTimer.start();
     }
 
+    /**
+     * Format thời gian từ milliseconds sang mm:ss.
+     */
     private String formatTime(long millis) {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
@@ -563,12 +610,17 @@ public class GameController {
         return String.format("%02d:%02d", minutes, seconds);
     }
 
-    // Control button handlers
+    // ==================== NÚT ĐIỀU KHIỂN ====================
+
+    /**
+     * Xử lý khi nhấn nút Pass.
+     */
     @FXML
     private void onPass() {
         if (viewOnly)
             return;
 
+        // Kiểm tra lượt đi
         String currentTurnId = game.getCurrentPlayerId();
         if (localPlayerId == null || !localPlayerId.equals(currentTurnId)) {
             showAlert("Chưa đến lượt", "Vui lòng chờ đến lượt của bạn.");
@@ -580,27 +632,29 @@ public class GameController {
         long thinkingTime = currentTime - turnStartTime;
         long myTimeRemaining = isBlack ? blackTimeMs : whiteTimeMs;
 
-        // Create pass move (x=-1, y=-1 indicates pass) với thời gian
+        // Tạo pass move (x=-1, y=-1)
         int order = game.getMoves() != null ? game.getMoves().size() + 1 : 1;
         String playerColor = isBlack ? "BLACK" : "WHITE";
         Moves passMove = new Moves(order, playerColor, -1, -1, game.getGameId(), myTimeRemaining, thinkingTime);
 
-        // Reset turnStartTime cho lượt tiếp theo
+        // Reset thời điểm
         turnStartTime = currentTime;
 
-        game.addMove(passMove);
-        game.setBlackTimeMs(blackTimeMs);
-        game.setWhiteTimeMs(whiteTimeMs);
-        game.setCapturedByBlack(capturedByBlack);
-        game.setCapturedByWhite(capturedByWhite);
-        GameHistoryStorage.upsert(game);
+        // Lưu trạng thái
+        saveGameState(passMove);
 
+        // Cập nhật giao diện
         updateTurnIndicator();
+
+        // Gửi cho đối thủ
         sendMoveToOpponent(passMove, order);
 
         showAlert("Pass", "Bạn đã pass lượt này.");
     }
 
+    /**
+     * Xử lý khi nhấn nút Đầu hàng.
+     */
     @FXML
     private void onSurrender() {
         if (viewOnly)
@@ -612,6 +666,7 @@ public class GameController {
         confirm.setContentText("Bạn có chắc chắn muốn đầu hàng không?");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.OK) {
+                // Cập nhật trạng thái game
                 game.setStatus(GameStatus.FINISHED);
                 game.setEndedAt(System.currentTimeMillis());
                 game.setBlackTimeMs(blackTimeMs);
@@ -620,10 +675,12 @@ public class GameController {
                 game.setCapturedByWhite(capturedByWhite);
                 GameHistoryStorage.upsert(game);
 
+                // Dừng timer
                 if (gameTimer != null) {
                     gameTimer.stop();
                 }
 
+                // Thông báo kết quả
                 String winner = isBlack ? "TRẮNG" : "ĐEN";
                 showAlert("Kết thúc", "Bạn đã đầu hàng. " + winner + " thắng!");
 
@@ -632,6 +689,9 @@ public class GameController {
         });
     }
 
+    /**
+     * Xử lý khi nhấn nút Thoát game.
+     */
     @FXML
     private void onExit() {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
@@ -640,172 +700,33 @@ public class GameController {
         confirm.setContentText("Bạn có chắc chắn muốn thoát không? Game sẽ được lưu.");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.OK) {
-                // Lưu trạng thái game trước khi thoát
+                // Lưu trạng thái trước khi thoát
                 game.setBlackTimeMs(blackTimeMs);
                 game.setWhiteTimeMs(whiteTimeMs);
                 game.setCapturedByBlack(capturedByBlack);
                 game.setCapturedByWhite(capturedByWhite);
                 GameHistoryStorage.upsert(game);
+
+                // Dừng timer
                 if (gameTimer != null) {
                     gameTimer.stop();
                 }
+
                 HelloApplication.navigateTo("dashboard.fxml");
             }
         });
     }
 
+    // ==================== TIỆN ÍCH ====================
+
+    /**
+     * Hiển thị dialog thông báo.
+     */
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
-    }
-
-    // Go rules implementation
-    private boolean applyMoveWithRules(int x, int y, int color, boolean enforceKoAndSuicide) {
-        if (board == null)
-            return false;
-        if (x < 0 || x >= boardSize || y < 0 || y >= boardSize)
-            return false;
-        if (board[x][y] != 0)
-            return false;
-
-        int[][] tmp = deepCopy(board);
-        tmp[x][y] = color;
-        int oppColor = color == 1 ? 2 : 1;
-        boolean anyCapture = false;
-
-        int[][] dirs = new int[][] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-        for (int[] d : dirs) {
-            int nx = x + d[0];
-            int ny = y + d[1];
-            if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize)
-                continue;
-            if (tmp[nx][ny] == oppColor) {
-                if (removeGroupIfNoLiberties(tmp, nx, ny, oppColor)) {
-                    anyCapture = true;
-                }
-            }
-        }
-
-        int libertiesAfter = countLiberties(tmp, x, y, color);
-        if (enforceKoAndSuicide && libertiesAfter == 0 && !anyCapture) {
-            return false;
-        }
-
-        if (enforceKoAndSuicide && prevBoard != null && boardsEqual(tmp, prevBoard)) {
-            return false;
-        }
-
-        prevBoard = deepCopy(board);
-        board = tmp;
-        return true;
-    }
-
-    private boolean removeGroupIfNoLiberties(int[][] state, int sx, int sy, int color) {
-        boolean[][] visited = new boolean[boardSize][boardSize];
-        int[][] stack = new int[boardSize * boardSize][2];
-        int top = 0;
-        stack[top][0] = sx;
-        stack[top][1] = sy;
-        visited[sx][sy] = true;
-        int groupCount = 0;
-        boolean hasLiberty = false;
-
-        int[][] group = new int[boardSize * boardSize][2];
-        int[][] dirs = new int[][] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-
-        while (top >= 0) {
-            int cx = stack[top][0];
-            int cy = stack[top][1];
-            top--;
-            group[groupCount][0] = cx;
-            group[groupCount][1] = cy;
-            groupCount++;
-
-            for (int[] d : dirs) {
-                int nx = cx + d[0];
-                int ny = cy + d[1];
-                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize)
-                    continue;
-                if (state[nx][ny] == 0) {
-                    hasLiberty = true;
-                } else if (state[nx][ny] == color && !visited[nx][ny]) {
-                    visited[nx][ny] = true;
-                    top++;
-                    stack[top][0] = nx;
-                    stack[top][1] = ny;
-                }
-            }
-        }
-
-        if (hasLiberty)
-            return false;
-
-        for (int i = 0; i < groupCount; i++) {
-            state[group[i][0]][group[i][1]] = 0;
-        }
-        return true;
-    }
-
-    private int countLiberties(int[][] state, int sx, int sy, int color) {
-        boolean[][] visited = new boolean[boardSize][boardSize];
-        int[][] stack = new int[boardSize * boardSize][2];
-        int top = 0;
-        stack[top][0] = sx;
-        stack[top][1] = sy;
-        visited[sx][sy] = true;
-        int liberties = 0;
-
-        int[][] dirs = new int[][] { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
-        while (top >= 0) {
-            int cx = stack[top][0];
-            int cy = stack[top][1];
-            top--;
-
-            for (int[] d : dirs) {
-                int nx = cx + d[0];
-                int ny = cy + d[1];
-                if (nx < 0 || nx >= boardSize || ny < 0 || ny >= boardSize)
-                    continue;
-                if (state[nx][ny] == 0) {
-                    liberties++;
-                } else if (state[nx][ny] == color && !visited[nx][ny]) {
-                    visited[nx][ny] = true;
-                    top++;
-                    stack[top][0] = nx;
-                    stack[top][1] = ny;
-                }
-            }
-        }
-        return liberties;
-    }
-
-    private int[][] deepCopy(int[][] src) {
-        if (src == null)
-            return null;
-        int[][] dst = new int[src.length][];
-        for (int i = 0; i < src.length; i++) {
-            dst[i] = new int[src[i].length];
-            System.arraycopy(src[i], 0, dst[i], 0, src[i].length);
-        }
-        return dst;
-    }
-
-    private boolean boardsEqual(int[][] a, int[][] b) {
-        if (a == null || b == null)
-            return false;
-        if (a.length != b.length)
-            return false;
-        for (int i = 0; i < a.length; i++) {
-            if (a[i].length != b[i].length)
-                return false;
-            for (int j = 0; j < a[i].length; j++) {
-                if (a[i][j] != b[i][j])
-                    return false;
-            }
-        }
-        return true;
     }
 }
