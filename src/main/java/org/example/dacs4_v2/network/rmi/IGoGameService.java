@@ -17,14 +17,13 @@ public interface IGoGameService extends Remote {
 
     void requestResume(String gameId, User requester) throws RemoteException;
     void onResumeResponse(String gameId, User responder, boolean accepted) throws RemoteException;
-    void onResumeDecision(String gameId, boolean start) throws RemoteException;
 
-   void submitMove(Moves move, long seqNo) throws RemoteException;
+    void submitMove(Moves move, long seqNo) throws RemoteException;
     void moveAck(long seqNo) throws RemoteException;
     void onReconnectRequest(String peerId, String gameId) throws RemoteException;
     void onReconnectOffer(Game gameSnapshot) throws RemoteException;
-    void notifyAsSuccessor( User nextSuccessor) throws RemoteException;
-    void notifyAsPredecessor( User prevPredecessor) throws RemoteException;
+    void notifyAsSuccessor(User nextSuccessor) throws RemoteException;
+    void notifyAsPredecessor(User prevPredecessor) throws RemoteException;
     User getSuccessor() throws RemoteException;
     User getPredecessor() throws RemoteException;
     List<Game> getGameHistory(int limit) throws RemoteException;

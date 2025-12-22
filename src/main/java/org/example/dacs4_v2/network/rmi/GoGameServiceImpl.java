@@ -23,11 +23,22 @@ import org.example.dacs4_v2.game.GameContext;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
 
+/**
+ * Triển khai interface IGoGameService, cung cấp các phương thức quản lý game và
+ * giao tiếp P2P.
+ */
 public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameService {
     private final User localUser;
     private final ConcurrentHashMap<String, Game> activeGames = new ConcurrentHashMap<>();
     private final List<Game> gameHistory = new ArrayList<>();
 
+    /**
+     * Tìm game để resume: ưu tiên lấy từ cache activeGames, nếu không có thì load
+     * từ lịch sử đã lưu.
+     *
+     * @param gameId ID của game cần tìm
+     * @return game tìm thấy, hoặc null nếu không có
+     */
     private Game resolveGameForResume(String gameId) {
         if (gameId == null || gameId.isEmpty()) {
             return null;
@@ -49,6 +60,13 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return null;
     }
 
+    /**
+     * Tạo bản sao (snapshot) User gọn nhẹ để tránh serialize graph neighbors qua
+     * RMI / ghi JSON.
+     *
+     * @param u user cần snapshot
+     * @return user snapshot
+     */
     private static User snapshotUser(User u) {
         // Lưu/trao đổi User snapshot (không kèm neighbors) để:
         // - Tránh serialize graph neighbors quá lớn qua RMI/Gson
@@ -68,6 +86,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     private final AtomicInteger nextFingerIndex = new AtomicInteger(0);
     private volatile ScheduledExecutorService fingerScheduler;
 
+    /**
+     * Khởi tạo service RMI tại local, gắn với thông tin localUser.
+     *
+     * @param user user local
+     * @throws RemoteException lỗi RMI
+     */
     public GoGameServiceImpl(User user) throws RemoteException {
         this.localUser = user;
         for (int i = 0; i < FINGER_TABLE_SIZE; i++) {
@@ -75,6 +99,9 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    /**
+     * Bắt đầu tác vụ nền Chord-lite (fix-fingers) chạy định kỳ.
+     */
     public synchronized void startChordLite() {
         if (fingerScheduler != null) {
             return;
@@ -95,6 +122,9 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }, FIX_FINGERS_INTERVAL_MS, FIX_FINGERS_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Dừng scheduler Chord-lite.
+     */
     public synchronized void stopChordLite() {
         ScheduledExecutorService scheduler = fingerScheduler;
         fingerScheduler = null;
@@ -103,6 +133,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    /**
+     * Tính và cập nhật finger tiếp theo trong finger table bằng
+     * findSuccessorByHash.
+     *
+     * @throws RemoteException lỗi RMI
+     */
     private void fixNextFinger() throws RemoteException {
         User succ = localUser.getNeighbor(NeighborType.SUCCESSOR);
         if (succ == null) {
@@ -122,6 +158,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    /**
+     * Hash userId vào keyspace của Chord bằng SHA-1.
+     *
+     * @param userId ID cần hash
+     * @return giá trị hash
+     */
     private static BigInteger hashUserId(String userId) {
         if (userId == null) {
             return BigInteger.ZERO;
@@ -135,6 +177,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    /**
+     * Kiểm tra x nằm trong khoảng (a, b] trên vòng định danh (identifier ring).
+     *
+     * @param a đầu khoảng
+     * @param x điểm cần kiểm tra
+     * @param b cuối khoảng
+     * @return true nếu x thuộc (a, b], ngược lại false
+     */
     private static boolean inOpenClosedInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;
@@ -149,6 +199,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return true;
     }
 
+    /**
+     * Kiểm tra x nằm trong khoảng (a, b) trên vòng định danh (identifier ring).
+     *
+     * @param a đầu khoảng
+     * @param x điểm cần kiểm tra
+     * @param b cuối khoảng
+     * @return true nếu x thuộc (a, b), ngược lại false
+     */
     private static boolean inOpenOpenInterval(BigInteger a, BigInteger x, BigInteger b) {
         if (a == null || x == null || b == null) {
             return false;
@@ -163,6 +221,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return x.compareTo(a) > 0 || x.compareTo(b) < 0;
     }
 
+    /**
+     * Chọn node gần nhất (closest preceding finger) để route về phía targetHash.
+     *
+     * @param targetHash hash đích
+     * @return node next-hop (finger) phù hợp
+     */
     private User closestPrecedingFinger(BigInteger targetHash) {
         BigInteger selfHash = hashUserId(localUser.getUserId());
         synchronized (fingerTable) {
@@ -185,8 +249,15 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         return localUser.getNeighbor(NeighborType.SUCCESSOR);
     }
 
+    /**
+     * Đăng ký game outgoing (phía host) vào activeGames để các callback tìm thấy;
+     * đồng thời lưu lịch sử.
+     *
+     * @param game game cần đăng ký
+     */
     public void registerOutgoingGame(Game game) {
-        // Host tạo game và lưu local ngay lập tức để có record lịch sử (INVITE_SENT) kể cả đối thủ offline.
+        // Host tạo game và lưu local ngay lập tức để có record lịch sử (INVITE_SENT) kể
+        // cả đối thủ offline.
         if (game == null || game.getGameId() == null) {
             return;
         }
@@ -195,11 +266,19 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Phía receiver: nhận lời mời (invite), lưu lịch sử, và hiện dialog để người
+     * dùng Accept/Decline.
+     *
+     * @param game game được mời
+     * @throws RemoteException lỗi RMI
+     */
     public void inviteToGame(Game game) throws RemoteException {
         System.out.println("[RMI] Nhận lời mời vào game: " + (game != null ? game.getGameId() : "null"));
         if (game != null) {
             // Receiver nhận invite -> lưu record + chờ user accept/decline.
             game.setStatus(GameStatus.INVITE_RECEIVED);
+
             if (game.getCreatedAt() <= 0) {
                 game.setCreatedAt(System.currentTimeMillis());
             }
@@ -209,58 +288,69 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
 
             activeGames.put(game.getGameId(), game);
             GameHistoryStorage.upsert(game);
-        }
 
-        Platform.runLater(() -> {
-            String title = "Game invite";
-            String msg = "Bạn được mời vào game " + game.getGameId();
-            if (game.getNameGame() != null && !game.getNameGame().isEmpty()) {
-                msg += " (" + game.getNameGame() + ")";
-            }
-
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
-            alert.setTitle(title);
-            alert.setHeaderText(null);
-            alert.showAndWait().ifPresent(btn -> {
-                if (btn == ButtonType.OK) {
-                    System.out.println("[UI] User accepted invite for game " + game.getGameId());
-                    try {
-                        // Receiver accept -> callback host (handshake bước 1). Chưa mở game, chờ host confirm.
-                        game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
-                        game.setAcceptedAt(System.currentTimeMillis());
-                        GameHistoryStorage.upsert(game);
-
-                        User host = game.getHostUser();
-                        if (host != null) {
-                            IGoGameService hostStub = getStub(host);
-                            hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), true);
-                        }
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    }
-                } else {
-                    System.out.println("[UI] User declined invite for game " + game.getGameId());
-                    try {
-                        // Receiver decline -> callback host để host update history và dừng chờ.
-                        game.setStatus(GameStatus.DECLINED);
-                        GameHistoryStorage.upsert(game);
-
-                        User host = game.getHostUser();
-                        if (host != null) {
-                            IGoGameService hostStub = getStub(host);
-                            hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), false);
-                        }
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
-                    } finally {
-                        activeGames.remove(game.getGameId());
-                    }
+            Platform.runLater(() -> {
+                String title = "Game invite";
+                String msg = "Bạn được mời vào game " + game.getGameId();
+                if (game.getNameGame() != null && !game.getNameGame().isEmpty()) {
+                    msg += " (" + game.getNameGame() + ")";
                 }
+
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
+                alert.setTitle(title);
+                alert.setHeaderText(null);
+                alert.showAndWait().ifPresent(btn -> {
+                    if (btn == ButtonType.OK) {
+                        System.out.println("[UI] User accepted invite for game " + game.getGameId());
+                        try {
+                            // Receiver accept -> callback host (handshake bước 1). Chưa mở game, chờ host
+                            // confirm.
+                            game.setStatus(GameStatus.RECEIVER_ACCEPTED_WAIT_HOST);
+                            game.setAcceptedAt(System.currentTimeMillis());
+                            GameHistoryStorage.upsert(game);
+
+                            User host = game.getHostUser();
+                            if (host != null) {
+                                IGoGameService hostStub = getStub(host);
+                                hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), true);
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    } else {
+                        System.out.println("[UI] User declined invite for game " + game.getGameId());
+                        try {
+                            // Receiver decline -> callback host để host update history và dừng chờ.
+                            game.setStatus(GameStatus.DECLINED);
+                            GameHistoryStorage.upsert(game);
+
+                            User host = game.getHostUser();
+                            if (host != null) {
+                                IGoGameService hostStub = getStub(host);
+                                hostStub.onInviteResponse(game.getGameId(), snapshotUser(localUser), false);
+                            }
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        } finally {
+                            activeGames.remove(game.getGameId());
+                        }
+                    }
+                });
             });
-        });
+        }
     }
 
     @Override
+    /**
+     * Phía host: nhận accept/decline từ receiver.
+     * Nếu receiver accept thì hỏi host Start/Cancel (bước 2) và notify lại cho
+     * receiver.
+     *
+     * @param gameId    ID của game
+     * @param responder peer phản hồi
+     * @param accepted  true nếu receiver accept
+     * @throws RemoteException lỗi RMI
+     */
     public void onInviteResponse(String gameId, User responder, boolean accepted) throws RemoteException {
         Game game = gameId != null ? activeGames.get(gameId) : null;
         if (game == null) {
@@ -281,7 +371,8 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             activeGames.remove(gameId);
 
             Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined invite for game " + gameId, ButtonType.OK);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined invite for game " + gameId,
+                        ButtonType.OK);
                 alert.setTitle("Invite declined");
                 alert.setHeaderText(null);
                 alert.showAndWait();
@@ -335,6 +426,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Phía receiver: nhận quyết định Start/Cancel từ host và vào game hoặc đóng
+     * flow.
+     *
+     * @param gameId ID của game
+     * @param start  true nếu host start game
+     * @throws RemoteException lỗi RMI
+     */
     public void onHostDecision(String gameId, boolean start) throws RemoteException {
         Game game = gameId != null ? activeGames.get(gameId) : null;
         if (game == null) {
@@ -350,7 +449,8 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             activeGames.remove(gameId);
 
             Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Host canceled invite for game " + gameId, ButtonType.OK);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Host canceled invite for game " + gameId,
+                        ButtonType.OK);
                 alert.setTitle("Invite canceled");
                 alert.setHeaderText(null);
                 alert.showAndWait();
@@ -370,6 +470,15 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Resume (phía nhận request): hiện dialog accept/decline.
+     * Nếu accept thì gửi onResumeResponse(accepted=true) cho peer kia và cả 2 vào
+     * game ngay.
+     *
+     * @param gameId    ID của game
+     * @param requester peer gửi yêu cầu resume
+     * @throws RemoteException lỗi RMI
+     */
     public void requestResume(String gameId, User requester) throws RemoteException {
         Game game = resolveGameForResume(gameId);
         if (game == null) {
@@ -384,72 +493,52 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             alert.setHeaderText(null);
             alert.showAndWait().ifPresent(btn -> {
                 boolean accepted = btn == ButtonType.OK;
-                try {
-                    if (requesterSnapshot != null) {
-                        IGoGameService stub = getStub(requesterSnapshot);
-                        stub.onResumeResponse(gameId, snapshotUser(localUser), accepted);
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
+
+                if (accepted) {
+                    // Vào game TRƯỚC để đảm bảo bên nhận luôn vào game khi accept
+                    GameContext.getInstance().setCurrentGame(game);
+                    GameContext.getInstance().setViewOnly(false);
+                    HelloApplication.navigateTo("game.fxml");
+                }
+
+                // Gửi response qua RMI trong background thread để tránh block UI
+                if (requesterSnapshot != null) {
+                    final boolean finalAccepted = accepted;
+                    new Thread(() -> {
+                        try {
+                            IGoGameService stub = getStub(requesterSnapshot);
+                            stub.onResumeResponse(gameId, snapshotUser(localUser), finalAccepted);
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
+                    }, "resume-response-thread").start();
                 }
             });
         });
     }
 
     @Override
+    /**
+     * Resume (phía gửi request): nhận accept/decline.
+     * Nếu accept thì vào game ngay (không có bước confirm nào nữa).
+     *
+     * @param gameId    ID của game
+     * @param responder peer phản hồi
+     * @param accepted  true nếu peer accept
+     * @throws RemoteException lỗi RMI
+     */
     public void onResumeResponse(String gameId, User responder, boolean accepted) throws RemoteException {
+        System.out.println("accept " + accepted);
         Game game = resolveGameForResume(gameId);
         if (game == null) {
             return;
         }
 
-        User responderSnapshot = snapshotUser(responder);
         if (!accepted) {
             Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined resume for game " + gameId, ButtonType.OK);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent declined resume for game " + gameId,
+                        ButtonType.OK);
                 alert.setTitle("Resume declined");
-                alert.setHeaderText(null);
-                alert.showAndWait();
-            });
-            return;
-        }
-
-        Platform.runLater(() -> {
-            String msg = "Opponent accepted resume for game " + gameId + ". Start now?";
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, msg, ButtonType.OK, ButtonType.CANCEL);
-            alert.setTitle("Resume game");
-            alert.setHeaderText(null);
-            alert.showAndWait().ifPresent(btn -> {
-                boolean start = btn == ButtonType.OK;
-                try {
-                    if (start) {
-                        GameContext.getInstance().setCurrentGame(game);
-                        GameContext.getInstance().setViewOnly(false);
-                        HelloApplication.navigateTo("game.fxml");
-                    }
-
-                    if (responderSnapshot != null) {
-                        IGoGameService stub = getStub(responderSnapshot);
-                        stub.onResumeDecision(gameId, start);
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            });
-        });
-    }
-
-    @Override
-    public void onResumeDecision(String gameId, boolean start) throws RemoteException {
-        Game game = resolveGameForResume(gameId);
-        if (game == null) {
-            return;
-        }
-
-        if (!start) {
-            Platform.runLater(() -> {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION, "Opponent canceled resume for game " + gameId, ButtonType.OK);
-                alert.setTitle("Resume canceled");
                 alert.setHeaderText(null);
                 alert.showAndWait();
             });
@@ -464,6 +553,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Nhận nước đi từ peer remote, append/persist vào game, rồi notify UI thông qua
+     * GameContext.
+     *
+     * @param move  nước đi
+     * @param seqNo số thứ tự (seq) của move
+     * @throws RemoteException lỗi RMI
+     */
     public void submitMove(Moves move, long seqNo) throws RemoteException {
         Game game = null;
         if (move != null && move.getGameId() != null) {
@@ -483,32 +580,65 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Nhận ACK cho seqNo của move (hiện tại chỉ log).
+     *
+     * @param seqNo số thứ tự (seq) của move
+     * @throws RemoteException lỗi RMI
+     */
     public void moveAck(long seqNo) throws RemoteException {
         System.out.println("[RMI] Nhận ACK move #" + seqNo);
     }
 
     @Override
+    /**
+     * Hook reconnect (legacy): dùng để request snapshot game (hiện tại chỉ log).
+     *
+     * @param peerId ID của peer
+     * @param gameId ID của game
+     * @throws RemoteException lỗi RMI
+     */
     public void onReconnectRequest(String peerId, String gameId) throws RemoteException {
         Game game = activeGames.get(gameId);
         if (game != null && game.isParticipant(peerId)) {
             // Gửi snapshot
             // peerService.onReconnectOffer(cloneGame(game));
+
             System.out.println("[RMI] Gửi snapshot game " + gameId + " cho " + peerId);
         }
     }
 
     @Override
+    /**
+     * Nhận snapshot game từ peer và lưu vào activeGames.
+     *
+     * @param gameSnapshot snapshot game
+     * @throws RemoteException lỗi RMI
+     */
     public void onReconnectOffer(Game gameSnapshot) throws RemoteException {
         System.out.println("[RMI] Nhận snapshot game: " + gameSnapshot.getGameId());
         activeGames.put(gameSnapshot.getGameId(), gameSnapshot);
     }
 
     @Override
+    /**
+     * Load lịch sử game từ storage.
+     *
+     * @param limit số lượng tối đa game cần load
+     * @return danh sách game lịch sử
+     * @throws RemoteException lỗi RMI
+     */
     public List<Game> getGameHistory(int limit) throws RemoteException {
         return GameHistoryStorage.loadHistory(limit);
     }
 
     @Override
+    /**
+     * Thông báo peer online để node/UI local cập nhật (dashboard/neighbors).
+     *
+     * @param user peer online
+     * @throws RemoteException lỗi RMI
+     */
     public void onOnlinePeerDiscovered(User user) throws RemoteException {
         P2PContext ctx = P2PContext.getInstance();
         if (ctx.getNode() != null) {
@@ -517,6 +647,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Tra cứu peer theo peerId qua DHT (có giới hạn số hop).
+     *
+     * @param targetPeerId ID peer cần tìm
+     * @param maxHops      số hop tối đa
+     * @return peer tìm thấy, hoặc null nếu không có
+     * @throws RemoteException lỗi RMI
+     */
     public User findPeerById(String targetPeerId, int maxHops) throws RemoteException {
         if (maxHops <= 0 || targetPeerId == null || targetPeerId.isEmpty()) {
             return null;
@@ -539,6 +677,14 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Route trong DHT để tìm successor chịu trách nhiệm cho targetHash.
+     *
+     * @param targetHash hash đích
+     * @param maxHops    số hop tối đa
+     * @return successor phù hợp, hoặc null nếu không có
+     * @throws RemoteException lỗi RMI
+     */
     public User findSuccessorByHash(BigInteger targetHash, int maxHops) throws RemoteException {
         if (maxHops <= 0 || targetHash == null) {
             return null;
@@ -576,6 +722,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         }
     }
 
+    /**
+     * Cập nhật successor local và yêu cầu UI refresh.
+     *
+     * @param nextSuccessor successor mới
+     * @throws RemoteException lỗi RMI
+     */
     public void notifyAsSuccessor(User nextSuccessor) throws RemoteException {
         localUser.setNeighbor(NeighborType.SUCCESSOR, nextSuccessor);
         System.out.println("da cap nhat succPeer la: " + nextSuccessor.getName());
@@ -584,6 +736,12 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
         ctx.requestNeighborUiUpdate();
     }
 
+    /**
+     * Cập nhật predecessor local và yêu cầu UI refresh.
+     *
+     * @param prevPredecessor predecessor mới
+     * @throws RemoteException lỗi RMI
+     */
     public void notifyAsPredecessor(User prevPredecessor) throws RemoteException {
         localUser.setNeighbor(NeighborType.PREDECESSOR, prevPredecessor);
         System.out.println("da cap nhat prevPeer la: " + prevPredecessor.getName());
@@ -593,37 +751,50 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
     }
 
     @Override
+    /**
+     * Lấy successor hiện tại.
+     *
+     * @return successor hiện tại
+     * @throws RemoteException lỗi RMI
+     */
     public User getSuccessor() throws RemoteException {
         return localUser.getNeighbor(NeighborType.SUCCESSOR);
     }
 
     @Override
+    /**
+     * Lấy predecessor hiện tại.
+     *
+     * @return predecessor hiện tại
+     * @throws RemoteException lỗi RMI
+     */
     public User getPredecessor() throws RemoteException {
         return localUser.getNeighbor(NeighborType.PREDECESSOR);
     }
 
+    /**
+     * Tiện ích tạo RMI stub theo cấu hình peer (host/port/serviceName).
+     *
+     * @param config cấu hình peer
+     * @return RMI stub
+     * @throws Exception lỗi bất kỳ
+     */
     public static IGoGameService getStub(User config) throws Exception {
         String url = "rmi://" + config.getHost() + ":" + config.getPort() + "/" + config.getServiceName();
         return (IGoGameService) Naming.lookup(url);
     }
-//
-//    private UserConfig selectNextHopFromNeighbors(String targetPeerId) {
-//        if (targetPeerId == null || targetPeerId.isEmpty()) return null;
-//
-//        String myId = localUser.getUserId();
-//        if (myId == null) return null;
-//
-//        int bestDistance = Math.abs(myId.compareTo(targetPeerId));
-//        UserConfig best = null;
-//
-//        for (NeighborType type : NeighborType.values()) {
-//            if (c == null || c.getUserId() == null) continue;
-//            int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
-//            if (dist < bestDistance) {
-//                bestDistance = dist;
-//                best = c;
-//            }
-//        }
-//        return best;
-//    }
+    //
+    // int bestDistance = Math.abs(myId.compareTo(targetPeerId));
+    // UserConfig best = null;
+    //
+    // for (NeighborType type : NeighborType.values()) {
+    // if (c == null || c.getUserId() == null) continue;
+    // int dist = Math.abs(c.getUserId().compareTo(targetPeerId));
+    // if (dist < bestDistance) {
+    // bestDistance = dist;
+    // best = c;
+    // }
+    // }
+    // return best;
+    // }
 }
