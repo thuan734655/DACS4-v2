@@ -27,12 +27,21 @@ public class Game implements Serializable {
     private User hostUser;
     private User rivalUser;
 
+    // Thời gian còn lại của mỗi người chơi (milliseconds)
+    private long blackTimeMs = 10 * 60 * 1000; // 10 phút mặc định
+    private long whiteTimeMs = 10 * 60 * 1000;
+
+    // Số quân bị bắt
+    private int capturedByBlack = 0; // Quân trắng bị đen bắt
+    private int capturedByWhite = 0; // Quân đen bị trắng bắt
+
     private List<Moves> moves = new ArrayList<>();
 
     public Game() {
     }
 
-    public Game(String gameId, String hostPeerId, String userId, String rivalId, int boardSize, int komi, String nameGame) {
+    public Game(String gameId, String hostPeerId, String userId, String rivalId, int boardSize, int komi,
+            String nameGame) {
         this.gameId = gameId;
         this.hostPeerId = hostPeerId;
         this.userId = userId;
@@ -194,5 +203,39 @@ public class Game implements Serializable {
             return false;
         }
         return peerId.equals(userId) || peerId.equals(rivalId) || peerId.equals(hostPeerId);
+    }
+
+    // Getters/Setters cho thời gian còn lại
+    public long getBlackTimeMs() {
+        return blackTimeMs;
+    }
+
+    public void setBlackTimeMs(long blackTimeMs) {
+        this.blackTimeMs = blackTimeMs;
+    }
+
+    public long getWhiteTimeMs() {
+        return whiteTimeMs;
+    }
+
+    public void setWhiteTimeMs(long whiteTimeMs) {
+        this.whiteTimeMs = whiteTimeMs;
+    }
+
+    // Getters/Setters cho số quân bị bắt
+    public int getCapturedByBlack() {
+        return capturedByBlack;
+    }
+
+    public void setCapturedByBlack(int capturedByBlack) {
+        this.capturedByBlack = capturedByBlack;
+    }
+
+    public int getCapturedByWhite() {
+        return capturedByWhite;
+    }
+
+    public void setCapturedByWhite(int capturedByWhite) {
+        this.capturedByWhite = capturedByWhite;
     }
 }

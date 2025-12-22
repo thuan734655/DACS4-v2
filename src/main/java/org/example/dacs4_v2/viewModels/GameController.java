@@ -98,15 +98,18 @@ public class GameController {
     private double padding;
     private double boardPixelSize;
 
-    // Captured stones count
-    private int capturedByBlack = 0; // Quân trắng bị đen bắt
-    private int capturedByWhite = 0; // Quân đen bị trắng bắt
+    // Captured stones count (sẽ load từ game khi resume)
+    private int capturedByBlack = 0;
+    private int capturedByWhite = 0;
 
-    // Timer
-    private long blackTimeMs = 10 * 60 * 1000; // 10 phút
-    private long whiteTimeMs = 10 * 60 * 1000;
+    // Timer (sẽ load từ game khi resume)
+    private long blackTimeMs;
+    private long whiteTimeMs;
     private long lastTickTime;
     private AnimationTimer gameTimer;
+
+    // Thời điểm bắt đầu lượt đi hiện tại (để tính thời gian suy nghĩ)
+    private long turnStartTime;
 
     @FXML
     public void initialize() {
@@ -117,6 +120,14 @@ public class GameController {
             HelloApplication.navigateTo("dashboard.fxml");
             return;
         }
+
+        // Load thời gian từ game (hỗ trợ resume)
+        blackTimeMs = game.getBlackTimeMs();
+        whiteTimeMs = game.getWhiteTimeMs();
+
+        // Load số quân bị bắt từ game (hỗ trợ resume)
+        capturedByBlack = game.getCapturedByBlack();
+        capturedByWhite = game.getCapturedByWhite();
 
         boardSize = game.getBoardSize();
 
@@ -156,6 +167,7 @@ public class GameController {
         // Setup move listener
         if (!viewOnly) {
             GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
+            turnStartTime = System.currentTimeMillis(); // Ghi nhận thời điểm bắt đầu lượt
             startTimer();
         }
 
@@ -361,13 +373,27 @@ public class GameController {
             capturedByWhite += newCaptures;
         }
 
-        // Create move
+        // Tính thời gian suy nghĩ cho nước đi này
+        long currentTime = System.currentTimeMillis();
+        long thinkingTime = currentTime - turnStartTime;
+
+        // Lấy thời gian còn lại của người vừa đi
+        long myTimeRemaining = isBlack ? blackTimeMs : whiteTimeMs;
+
+        // Create move với thông tin thời gian
         int order = game.getMoves() != null ? game.getMoves().size() + 1 : 1;
         String playerColor = isBlack ? "BLACK" : "WHITE";
-        Moves move = new Moves(order, playerColor, gridX, gridY, game.getGameId());
+        Moves move = new Moves(order, playerColor, gridX, gridY, game.getGameId(), myTimeRemaining, thinkingTime);
 
-        // Persist
+        // Reset thời điểm bắt đầu lượt cho người tiếp theo
+        turnStartTime = currentTime;
+
+        // Cập nhật game state trước khi persist
         game.addMove(move);
+        game.setBlackTimeMs(blackTimeMs);
+        game.setWhiteTimeMs(whiteTimeMs);
+        game.setCapturedByBlack(capturedByBlack);
+        game.setCapturedByWhite(capturedByWhite);
         GameHistoryStorage.upsert(game);
 
         // Update UI
@@ -421,6 +447,24 @@ public class GameController {
         int my = move.getY();
         int color = "BLACK".equals(move.getPlayer()) ? 1 : 2;
 
+        // Cập nhật thời gian của đối thủ từ move nhận được
+        long opponentTimeRemaining = move.getPlayerTimeRemainingMs();
+        if (opponentTimeRemaining > 0) {
+            if (color == 1) {
+                // Đối thủ là BLACK, cập nhật blackTimeMs
+                blackTimeMs = opponentTimeRemaining;
+            } else {
+                // Đối thủ là WHITE, cập nhật whiteTimeMs
+                whiteTimeMs = opponentTimeRemaining;
+            }
+            // Cập nhật vào game để đồng bộ
+            game.setBlackTimeMs(blackTimeMs);
+            game.setWhiteTimeMs(whiteTimeMs);
+        }
+
+        // Reset turnStartTime vì bây giờ là lượt của mình
+        turnStartTime = System.currentTimeMillis();
+
         int capturedBefore = countCaptured(color);
 
         if (!applyMoveWithRules(mx, my, color, false)) {
@@ -435,10 +479,18 @@ public class GameController {
             capturedByWhite += newCaptures;
         }
 
+        // Cập nhật captured vào game
+        game.setCapturedByBlack(capturedByBlack);
+        game.setCapturedByWhite(capturedByWhite);
+        GameHistoryStorage.upsert(game);
+
         Platform.runLater(() -> {
             drawBoard();
             updateTurnIndicator();
             updateCapturedStones();
+            // Cập nhật hiển thị timer
+            lblBlackTime.setText(formatTime(blackTimeMs));
+            lblWhiteTime.setText(formatTime(whiteTimeMs));
         });
     }
 
@@ -523,12 +575,24 @@ public class GameController {
             return;
         }
 
-        // Create pass move (x=-1, y=-1 indicates pass)
+        // Tính thời gian suy nghĩ
+        long currentTime = System.currentTimeMillis();
+        long thinkingTime = currentTime - turnStartTime;
+        long myTimeRemaining = isBlack ? blackTimeMs : whiteTimeMs;
+
+        // Create pass move (x=-1, y=-1 indicates pass) với thời gian
         int order = game.getMoves() != null ? game.getMoves().size() + 1 : 1;
         String playerColor = isBlack ? "BLACK" : "WHITE";
-        Moves passMove = new Moves(order, playerColor, -1, -1, game.getGameId());
+        Moves passMove = new Moves(order, playerColor, -1, -1, game.getGameId(), myTimeRemaining, thinkingTime);
+
+        // Reset turnStartTime cho lượt tiếp theo
+        turnStartTime = currentTime;
 
         game.addMove(passMove);
+        game.setBlackTimeMs(blackTimeMs);
+        game.setWhiteTimeMs(whiteTimeMs);
+        game.setCapturedByBlack(capturedByBlack);
+        game.setCapturedByWhite(capturedByWhite);
         GameHistoryStorage.upsert(game);
 
         updateTurnIndicator();
@@ -550,6 +614,10 @@ public class GameController {
             if (btn == ButtonType.OK) {
                 game.setStatus(GameStatus.FINISHED);
                 game.setEndedAt(System.currentTimeMillis());
+                game.setBlackTimeMs(blackTimeMs);
+                game.setWhiteTimeMs(whiteTimeMs);
+                game.setCapturedByBlack(capturedByBlack);
+                game.setCapturedByWhite(capturedByWhite);
                 GameHistoryStorage.upsert(game);
 
                 if (gameTimer != null) {
@@ -572,6 +640,11 @@ public class GameController {
         confirm.setContentText("Bạn có chắc chắn muốn thoát không? Game sẽ được lưu.");
         confirm.showAndWait().ifPresent(btn -> {
             if (btn == ButtonType.OK) {
+                // Lưu trạng thái game trước khi thoát
+                game.setBlackTimeMs(blackTimeMs);
+                game.setWhiteTimeMs(whiteTimeMs);
+                game.setCapturedByBlack(capturedByBlack);
+                game.setCapturedByWhite(capturedByWhite);
                 GameHistoryStorage.upsert(game);
                 if (gameTimer != null) {
                     gameTimer.stop();
