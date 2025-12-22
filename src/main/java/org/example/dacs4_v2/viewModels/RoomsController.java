@@ -60,7 +60,12 @@ public class RoomsController {
         allGames.clear();
         List<Game> history = GameHistoryStorage.loadHistory(0);
         if (history != null) {
-            allGames.addAll(history);
+            // Chỉ lấy game đang chơi hoặc tạm dừng (không lấy game đã kết thúc)
+            for (Game g : history) {
+                if (g.getStatus() != GameStatus.FINISHED) {
+                    allGames.add(g);
+                }
+            }
         }
         allGames.sort(Comparator.comparingLong(RoomsController::gameSortTime).reversed());
         renderGames();

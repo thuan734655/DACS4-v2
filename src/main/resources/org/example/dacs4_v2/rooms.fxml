@@ -22,9 +22,7 @@
                 <Separator />
 
                 <ToggleButton maxWidth="Infinity" onAction="#onGoDashboard" styleClass="nav-button" text="Dashboard" />
-                <ToggleButton maxWidth="Infinity" styleClass="nav-button" text="Play Game" />
                 <ToggleButton maxWidth="Infinity" onAction="#onGoRooms" selected="true" styleClass="nav-button-selected" text="Games" />
-                <ToggleButton maxWidth="Infinity" styleClass="nav-button" text="Statistics" />
 
                 <Pane VBox.vgrow="ALWAYS" />
 
@@ -54,8 +52,6 @@
                     <children>
                         <TextField fx:id="searchField" promptText="Search games..." HBox.hgrow="ALWAYS" />
                         <ToggleButton selected="true" text="All" />
-                        <ToggleButton text="Available" />
-                        <ToggleButton text="Ranked" />
                     </children>
                 </HBox>
 

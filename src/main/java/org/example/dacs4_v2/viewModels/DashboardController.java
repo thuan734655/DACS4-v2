@@ -347,6 +347,11 @@ public class DashboardController {
     }
 
     @FXML
+    private void onGoHistory() {
+        HelloApplication.navigateTo("history.fxml");
+    }
+
+    @FXML
     private void onChallengeAI() {
         try {
             // Import AIGameContext

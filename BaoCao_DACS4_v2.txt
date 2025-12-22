@@ -1,0 +1,288 @@
+CHƯƠNG 2: NGHIÊN CỨU TỔNG QUAN
+
+
+2.1. Các phương pháp
+
+2.1.1. Chức năng
+
+Hệ thống ứng dụng cờ vây trực tuyến P2P (DACS4_v2) được thiết kế để cung cấp các nhóm chức năng chính sau:
+
+    Đăng nhập và quản lý người dùng cục bộ
+    
+    - Người dùng nhập tên hiển thị thông qua màn hình login.fxml, hệ thống tự động sinh mã định danh duy nhất (peerId) dựa trên UUID và lưu thông tin vào file data/user.json trên máy cục bộ.
+    - Dữ liệu người dùng được quản lý bởi class UserStorage.java sử dụng thư viện Gson để chuyển đổi object Java sang JSON và ngược lại.
+    - Hệ thống tự động kiểm tra và tải lại thông tin người dùng cho các lần sử dụng sau thông qua HelloApplication.java, nếu đã tồn tại file user.json thì bỏ qua màn hình đăng nhập và chuyển thẳng đến dashboard.
+
+    Khởi tạo node P2P và khám phá người chơi online
+    
+    - Mỗi khi người dùng mở ứng dụng, một node P2P tương ứng được khởi tạo thông qua class P2PNode.java, node này tham gia mạng DHT (Distributed Hash Table) theo mô hình Chord và sẵn sàng nhận kết nối từ các node khác.
+    - Hệ thống sử dụng BroadcastManager.java với giao thức UDP Multicast (port 9876) để tự động gửi yêu cầu khám phá (ASK_ONLINE) trong mạng LAN và hiển thị danh sách người chơi đang trực tuyến trên màn hình dashboard.fxml.
+    - Cơ chế Chord-lite DHT được triển khai với finger table (160 bits dựa trên SHA-1), predecessor/successor pointers, và periodic fix-fingers task chạy mỗi 5 giây.
+
+    Tạo phòng và mời đối thủ chơi cờ vây
+    
+    - Người chơi có thể tạo một ván cờ mới thông qua màn hình create_room.fxml với các tham số cơ bản: kích thước bàn cờ (9x9, 13x13, 19x19), komi (điểm bù cho quân trắng, mặc định 6.5), và tên ván đấu.
+    - Thông tin ván cờ được lưu trong model Game.java bao gồm: gameId, hostPeerId, boardSize, komi, status, danh sách moves, thời gian còn lại của mỗi người chơi (mặc định 10 phút).
+    - Giao tiếp mời/chấp nhận được xử lý qua Java RMI trong GoGameServiceImpl.java với các phương thức: inviteToGame() gửi lời mời, onInviteResponse() xử lý phản hồi chấp nhận/từ chối, onHostDecision() host quyết định bắt đầu ván.
+
+    Gửi và nhận nước đi theo thời gian gần thực
+    
+    - Mỗi nước cờ được đóng gói trong object Moves.java chứa: tọa độ (x, y), màu quân ("BLACK" hoặc "WHITE"), thứ tự nước đi, thời gian còn lại và thời gian suy nghĩ.
+    - Nước đi được gửi qua RMI với cơ chế ACK đảm bảo đồng bộ: submitMove() gửi nước đi kèm sequence number, moveAck() xác nhận đã nhận.
+    - GameController.java (1024 dòng) xử lý cập nhật đồng bộ bàn cờ trên giao diện của cả hai người chơi sử dụng JavaFX Canvas và Platform.runLater().
+    - Lịch sử nước đi được lưu trong danh sách moves của Game object để phục vụ việc xem lại hoặc resume ván cờ.
+
+    Xử lý luật cờ vây đầy đủ
+    
+    - Class GoGameLogic.java (322 dòng) implement đầy đủ luật cờ vây bao gồm: capture (bắt quân khi nhóm quân không còn liberties), suicide rule (không cho phép nước đi tự tử trừ khi bắt được quân), Ko rule (ngăn lặp lại vị trí bàn cờ trước đó).
+    - Thuật toán đếm liberties và xóa nhóm quân sử dụng BFS/DFS để duyệt các quân cùng màu liền kề.
+    - Hỗ trợ hiển thị star points (hoshi) cho các kích thước bàn cờ khác nhau.
+
+    Quản lý lịch sử và trạng thái ván cờ
+    
+    - GameHistoryStorage.java lưu trữ thông tin các ván cờ đã chơi vào file data/game_history.json theo cơ chế upsert (cập nhật nếu đã tồn tại, thêm mới nếu chưa có).
+    - Thông tin lưu trữ bao gồm: người tham gia (hostUser, rivalUser), kết quả, trạng thái (PLAYING, PAUSED, ENDED, SURRENDERED), timestamps (createdAt, startedAt, endedAt), và danh sách nước đi.
+    - Hỗ trợ tiếp tục ván cờ dở khi có sự cố kết nối thông qua cơ chế: requestResume() yêu cầu tiếp tục, onResumeResponse() phản hồi, replayMovesFromHistory() phát lại các nước đi từ lịch sử.
+
+    Tích hợp AI KataGo (tính năng bổ sung)
+    
+    - Hệ thống tích hợp engine AI cờ vây KataGo thông qua KataGoClient.java (326 dòng) giao tiếp qua GTP (Go Text Protocol).
+    - AIGameContext.java quản lý game với AI theo Singleton pattern, cho phép người chơi luyện tập với AI và tính điểm tự động khi kết thúc ván.
+
+
+2.1.2. Ưu điểm
+
+Hệ thống đề xuất có một số ưu điểm nổi bật:
+
+    Giảm phụ thuộc vào máy chủ trung tâm
+    
+    - Mô hình P2P với DHT cho phép các node kết nối trực tiếp với nhau thông qua Java RMI, không cần server trung tâm để điều phối.
+    - Phù hợp với môi trường mạng nội bộ, phòng máy, phòng lab, nơi không muốn hoặc không thể triển khai server cố định.
+    - Sử dụng UDP Multicast (port 9876) kết hợp với RMI để khám phá và giao tiếp giữa các node một cách hiệu quả.
+
+    Khả năng mở rộng và linh hoạt
+    
+    - Cấu trúc vòng Chord với finger table (160 bits SHA-1) và cơ chế cập nhật láng giềng (fix-fingers chạy mỗi 5 giây) giúp hệ thống có thể mở rộng số lượng node mà không cần thay đổi lớn về kiến trúc.
+    - Kiến trúc được phân lớp rõ ràng theo mô hình MVC: Models (Game, User, Moves), ViewModels (Controllers cho FXML), Network (P2P, RMI, DHT), Game Logic, AI Integration, Data Storage.
+    - Việc bổ sung chức năng mới (chẳng hạn thêm loại trò chơi khác hoặc tính năng chat) tương đối thuận lợi do các thành phần đã được tách biệt.
+
+    Tính thực nghiệm cao về hệ phân tán
+    
+    - Đề tài triển khai các khái niệm quan trọng trong hệ phân tán: P2P networking (P2PNode.java, P2PContext.java), DHT Chord (finger table, predecessor/successor), broadcast/discovery (BroadcastManager.java), gọi hàm từ xa qua RMI (interface IGoGameService.java với 15+ methods).
+    - Tất cả models đều implement Serializable để hỗ trợ truyền qua mạng.
+    - Mã nguồn có thể được tái sử dụng, mở rộng cho các bài toán phân tán khác như game cờ tướng, cờ caro, hoặc các ứng dụng P2P file sharing.
+
+    Giao diện người dùng hiện đại
+    
+    - Sử dụng JavaFX 21.0.2 với FXML để tách biệt giao diện và logic, hỗ trợ CSS để trang trí.
+    - Bàn cờ được vẽ bằng Canvas với gradient, shadow effects, và highlight nước đi cuối cùng.
+    - Timer đếm ngược sử dụng AnimationTimer của JavaFX, đảm bảo smooth animation.
+
+
+2.1.3. Nhược điểm
+
+Bên cạnh các ưu điểm, hệ thống vẫn còn một số hạn chế:
+
+    Phụ thuộc vào mạng nội bộ ổn định
+    
+    - Ứng dụng được thiết kế chủ yếu cho môi trường LAN; nếu mạng không ổn định, việc khám phá node và kết nối P2P có thể gặp trục trặc.
+    - UDP Multicast có thể bị block bởi một số router hoặc firewall trong môi trường mạng phức tạp.
+    - Chưa hỗ trợ NAT traversal để chơi qua Internet.
+
+    Chưa xử lý đầy đủ các tình huống lỗi phức tạp
+    
+    - Một số trường hợp như nhiều node rời mạng cùng lúc, mất điện đột ngột, hoặc thay đổi cấu trúc vòng liên tục có thể chưa được xử lý tối ưu.
+    - Việc đảm bảo tính ổn định của vòng DHT trong quy mô lớn đòi hỏi thêm các thuật toán phức tạp hơn (stabilization đầy đủ, finger table optimization) chưa được triển khai hoàn chỉnh trong phạm vi đồ án cơ sở.
+    - Error handling chủ yếu sử dụng printStackTrace(), chưa có cơ chế recovery và user notification đầy đủ.
+
+    Cấu trúc code cần tối ưu
+    
+    - File GameController.java có 1024 dòng, nên được refactor thành các class nhỏ hơn: BoardRenderer (vẽ bàn cờ), TimerManager (quản lý timer), MoveHandler (xử lý nước đi).
+    - File GoGameServiceImpl.java có 854 dòng với nhiều responsibilities, có thể tách thành các service riêng biệt.
+
+    Tính năng còn tập trung vào một trò chơi duy nhất
+    
+    - Hệ thống hiện mới tập trung cho cờ vây, chưa hỗ trợ đa dạng loại trò chơi.
+    - Chưa có các chức năng xã hội như chat trong game, bảng xếp hạng chi tiết (rank hiện chỉ là field đơn giản với giá trị mặc định 1000), spectator mode (xem người khác chơi).
+
+
+2.2. Các ngôn ngữ, công nghệ sử dụng
+
+2.2.1. Ngôn ngữ lập trình Java
+
+Java là ngôn ngữ lập trình hướng đối tượng, đa nền tảng, được sử dụng rộng rãi trong phát triển ứng dụng desktop, web và hệ thống phân tán.
+
+Phiên bản sử dụng trong dự án: Java 21 (JDK 21)
+
+Đặc điểm nổi bật của Java trong dự án:
+
+    - Đa nền tảng (Write Once, Run Anywhere): Mã Java biên dịch sang bytecode chạy trên Java Virtual Machine (JVM), có thể chạy trên nhiều hệ điều hành (Windows, Linux, macOS). Dự án hỗ trợ cả Windows (katago.exe) và Linux/Mac (katago).
+    
+    - Hỗ trợ mạnh lập trình mạng và đa luồng: Thư viện chuẩn cung cấp sẵn các lớp hỗ trợ: java.rmi.* cho Remote Method Invocation, java.net.* cho socket/multicast, java.util.concurrent.* cho ExecutorService, ScheduledExecutorService, ConcurrentHashMap, AtomicBoolean.
+    
+    - Hệ sinh thái phong phú: Dự án sử dụng JavaFX cho giao diện, Gson cho xử lý JSON, JUnit cho testing.
+
+Trong đề tài, Java là ngôn ngữ chính để cài đặt cả giao diện người dùng (viewModels/), xử lý game (game/GoGameLogic.java), và các chức năng mạng P2P/DHT/RMI (network/).
+
+
+2.2.2. JavaFX
+
+JavaFX là bộ thư viện giao diện người dùng (GUI) hiện đại cho Java, thay thế dần cho Swing trong nhiều ứng dụng desktop.
+
+Phiên bản sử dụng: JavaFX 21.0.2
+
+Một số đặc điểm chính:
+
+    - Thiết kế UI theo dạng scene graph: Quản lý các node giao diện (Button, Label, GridPane, FlowPane, VBox, HBox, Canvas,...) một cách có cấu trúc thông qua HelloApplication.java.
+    
+    - Hỗ trợ tách giao diện bằng FXML: Cho phép thiết kế layout giao diện độc lập với mã Java xử lý logic. Dự án có 5 file FXML chính:
+        + login.fxml (814 bytes): Màn hình đăng nhập
+        + dashboard.fxml (7,021 bytes): Dashboard hiển thị người chơi online
+        + rooms.fxml (3,692 bytes): Danh sách phòng chơi
+        + create_room.fxml (2,427 bytes): Tạo phòng mới
+        + game.fxml (9,482 bytes): Màn hình chơi game chính
+    
+    - Hỗ trợ CSS: Có thể sử dụng CSS để trang trí, tạo phong cách hiện đại cho ứng dụng.
+
+Trong đề tài, JavaFX được sử dụng để:
+    - Xây dựng các màn hình đăng nhập, dashboard, danh sách người chơi online với điều hướng qua HelloApplication.navigateTo().
+    - Hiển thị bàn cờ vây bằng Canvas với GraphicsContext để vẽ lưới, quân cờ với gradient và shadow effects, highlight nước đi cuối.
+    - Sử dụng AnimationTimer cho timer đếm ngược thời gian.
+    - Cập nhật UI từ background thread an toàn với Platform.runLater().
+
+
+2.2.3. Java RMI (Remote Method Invocation)
+
+Java RMI là cơ chế cho phép một đối tượng Java gọi phương thức của đối tượng khác nằm trên máy ảo JVM khác (có thể trên máy khác trong mạng), như gọi phương thức cục bộ.
+
+Đặc điểm:
+    - Ẩn chi tiết truyền thông: Lập trình viên chỉ cần định nghĩa interface (IGoGameService.java) và cài đặt (GoGameServiceImpl.java); việc đóng gói, gửi/nhận dữ liệu được RMI xử lý tự động.
+    - Tương thích tốt với mô hình hướng đối tượng: Đối tượng remote được sử dụng như đối tượng bình thường thông qua Java reflection và dynamic proxy.
+
+Trong đề tài, RMI được dùng để:
+    - Quản lý game flow: inviteToGame() gửi lời mời tham gia ván cờ, onInviteResponse() xử lý chấp nhận/từ chối, onHostDecision() bắt đầu ván.
+    - Đồng bộ nước đi: submitMove() gửi nước đi với sequence number, moveAck() xác nhận đã nhận.
+    - Resume game: requestResume() yêu cầu tiếp tục ván dở, onResumeResponse() phản hồi.
+    - DHT operations: findSuccessorByHash() tìm node chịu trách nhiệm cho key, notify() cập nhật predecessor.
+
+Interface IGoGameService định nghĩa 15+ phương thức cho toàn bộ giao tiếp P2P trong hệ thống.
+
+
+2.2.4. Socket và giao thức UDP
+
+Bên cạnh RMI, hệ thống sử dụng socket với giao thức UDP Multicast để khám phá và broadcast trong mạng LAN.
+
+BroadcastManager.java sử dụng:
+    - MulticastSocket trên port 9876 với địa chỉ multicast group.
+    - Serialize/Deserialize object BroadcastMessage để gửi/nhận qua UDP.
+
+Các loại message:
+    - ASK_ONLINE: Hỏi các node đang online trong LAN
+    - CLEAR_ONLINE: Thông báo node đang offline
+
+UDP được chọn vì:
+    - Độ trễ thấp: Không yêu cầu thiết lập kết nối như TCP, phù hợp cho các thông điệp discovery nhỏ, gửi thường xuyên.
+    - Multicast hiệu quả: Một gói tin có thể đến nhiều node cùng lúc.
+    - Đơn giản trong môi trường LAN: Ít bị mất gói trong mạng nội bộ ổn định.
+
+
+2.2.5. Distributed Hash Table (DHT) - mô hình và thuật toán
+
+DHT là cấu trúc dữ liệu phân tán cho phép ánh xạ khóa (ID) tới node lưu trữ/chịu trách nhiệm cho khóa đó trong một mạng P2P. Dự án triển khai mô hình Chord-lite.
+
+Trong phạm vi đồ án:
+    - Keyspace: Mỗi node được gán một định danh (peerId) được hash bằng SHA-1 thành giá trị 160-bit trên không gian khóa logic vòng tròn.
+    - Finger table: Mảng 160 phần tử lưu các node chịu trách nhiệm cho các khoảng key nhất định, giúp routing hiệu quả O(log N).
+    - Successor/Predecessor: Các node được sắp xếp theo vòng, mỗi node biết node kế tiếp (successor) và node trước đó (predecessor).
+
+Các thao tác đã triển khai trong GoGameServiceImpl.java:
+    - hashUserId(): Hash userId bằng SHA-1
+    - findSuccessorByHash(): Tìm node chịu trách nhiệm cho key với giới hạn hop count
+    - closestPrecedingFinger(): Tìm finger gần nhất để route
+    - inOpenClosedInterval(), inOpenOpenInterval(): Kiểm tra key thuộc khoảng trên vòng
+    - fixNextFinger(): Cập nhật finger table định kỳ (mỗi 5 giây)
+    - notify(): Cập nhật predecessor khi có node mới join
+
+DHT giúp hệ thống có thể mở rộng và phân tán trách nhiệm giữa các node mà không cần server trung tâm.
+
+
+2.2.6. Thư viện JSON và lưu trữ file cục bộ
+
+Để lưu trữ thông tin người dùng và lịch sử game, hệ thống sử dụng định dạng JSON với thư viện Gson.
+
+Phiên bản: Gson 2.10.1
+
+Các file lưu trữ:
+
+    File                        Class quản lý              Nội dung
+    ---------------------------------------------------------------------------
+    data/user.json              UserStorage.java           userId, name, rank, host, port, serviceName
+    data/game_history.json      GameHistoryStorage.java    Danh sách Game objects với moves, timestamps, kết quả
+
+DataStorage.java cung cấp:
+    - save(Object data, String filename): Serialize object sang JSON và ghi file
+    - load(String filename, Class<T> clazz): Đọc file JSON và deserialize thành object
+
+Ưu điểm:
+    - Cấu trúc linh hoạt, dễ mở rộng khi cần bổ sung thuộc tính mới.
+    - Dễ đọc và debug bằng text editor.
+    - Phù hợp với quy mô dữ liệu nhỏ của ứng dụng desktop.
+
+
+2.2.7. KataGo AI Engine
+
+KataGo là engine cờ vây mã nguồn mở sử dụng deep learning, được tích hợp để cho phép chơi với AI.
+
+Các thành phần:
+
+    File                    Kích thước      Mô tả
+    ----------------------------------------------------------------
+    katago/katago.exe       4.5 MB          Executable cho Windows
+    katago/model.bin.gz     ~93 MB          Neural network model
+    katago/gtp.cfg          348 bytes       Config file (maxVisits=100 cho CPU)
+
+Giao tiếp qua GTP (Go Text Protocol) trong KataGoClient.java:
+    - start(): Khởi động process KataGo với stdin/stdout
+    - sendCommand(): Gửi lệnh GTP và nhận response
+    - generateMove(color): Yêu cầu AI đánh nước tiếp theo
+    - playMove(color, x, y): Thông báo nước đi cho AI
+    - finalScore(): Tính điểm cuối game
+    - toGTPCoords(), parseGTPCoords(): Chuyển đổi tọa độ (ví dụ: (3,3) <-> "D4")
+
+
+2.2.8. Môi trường phát triển và Build Tool
+
+Build Tool: Apache Maven
+
+    groupId: org.example
+    artifactId: dacs4_v2
+    version: 1.0-SNAPSHOT
+
+Maven Plugins:
+    - maven-compiler-plugin 3.11.0: Compile với Java 21
+    - javafx-maven-plugin 0.0.8: Chạy ứng dụng JavaFX
+
+Chạy ứng dụng: mvn javafx:run
+
+IDE đề xuất: IntelliJ IDEA, VS Code với Java Extension Pack
+
+Việc sử dụng IDE giúp quá trình phát triển, kiểm thử và bảo trì mã nguồn trở nên thuận tiện, giảm thiểu lỗi cú pháp và lỗi logic cơ bản. Các tính năng như code completion, refactoring, debugging được hỗ trợ tốt.
+
+
+2.3. Thống kê mã nguồn
+
+    Package             Số file     Tổng dòng code      Mô tả
+    -------------------------------------------------------------------------
+    models/             7           ~600                Data models (Game, User, Moves, GameStatus,...)
+    viewModels/         5           ~2,000              Controllers cho FXML
+    network/            6           ~1,600              P2P, RMI, DHT, Broadcast
+    game/               2           ~550                Game logic và context
+    ai/                 2           ~560                Tích hợp KataGo AI
+    data/               3           ~200                JSON storage
+    -------------------------------------------------------------------------
+    Tổng cộng           25+         ~5,500+
+
+
+---
+Báo cáo được tạo dựa trên phân tích mã nguồn dự án DACS4_v2
+Ngày cập nhật: 22/12/2024

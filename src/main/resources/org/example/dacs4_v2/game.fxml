@@ -152,4 +152,31 @@
                     style="-fx-background-color: #64748b; -fx-text-fill: white; -fx-font-size: 14; -fx-font-weight: bold; -fx-padding: 12 24; -fx-background-radius: 8; -fx-cursor: hand;"/>
         </HBox>
     </bottom>
+    
+    <!-- RIGHT - CHAT PANEL -->
+    <right>
+        <VBox prefWidth="250" spacing="10" style="-fx-background-color: #ffffff; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, -2, 0);">
+            <!-- Header -->
+            <Label text="💬 Chat" style="-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #1e293b;"/>
+            <Separator/>
+            
+            <!-- Chat Messages -->
+            <ScrollPane fx:id="chatScrollPane" fitToWidth="true" VBox.vgrow="ALWAYS" 
+                        style="-fx-background-color: #f8fafc; -fx-background-radius: 8;">
+                <content>
+                    <VBox fx:id="chatMessagesBox" spacing="8" style="-fx-padding: 8;">
+                        <!-- Messages will be added here dynamically -->
+                    </VBox>
+                </content>
+            </ScrollPane>
+            
+            <!-- Input Area -->
+            <HBox spacing="8" alignment="CENTER">
+                <TextField fx:id="txtChatInput" promptText="Nhập tin nhắn..." HBox.hgrow="ALWAYS"
+                           style="-fx-background-radius: 20; -fx-padding: 8 12;" onAction="#onSendMessage"/>
+                <Button text="📤" onAction="#onSendMessage"
+                        style="-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-background-radius: 20; -fx-padding: 8 12; -fx-cursor: hand;"/>
+            </HBox>
+        </VBox>
+    </right>
 </BorderPane>

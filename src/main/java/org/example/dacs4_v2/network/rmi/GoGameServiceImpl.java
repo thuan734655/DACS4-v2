@@ -851,4 +851,20 @@ public class GoGameServiceImpl extends UnicastRemoteObject implements IGoGameSer
             }
         });
     }
+
+    // ==================== CHAT ====================
+
+    /**
+     * Nhận tin nhắn chat từ đối thủ.
+     */
+    @Override
+    public void sendChatMessage(String gameId, String senderName, String message) throws RemoteException {
+        System.out.println("[RMI] Nhận tin nhắn từ " + senderName + ": " + message);
+
+        // Lấy chat listener từ GameContext
+        GameContext context = GameContext.getInstance();
+        if (context.getChatListener() != null) {
+            context.getChatListener().accept(senderName, message);
+        }
+    }
 }

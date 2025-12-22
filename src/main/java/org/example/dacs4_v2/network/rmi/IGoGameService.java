@@ -57,4 +57,13 @@ public interface IGoGameService extends Remote {
      */
     void notifyGamePaused(String gameId, User user, String reason, long blackTimeMs, long whiteTimeMs)
             throws RemoteException;
+
+    /**
+     * Gửi tin nhắn chat trong game.
+     * 
+     * @param gameId     ID của game
+     * @param senderName tên người gửi
+     * @param message    nội dung tin nhắn
+     */
+    void sendChatMessage(String gameId, String senderName, String message) throws RemoteException;
 }

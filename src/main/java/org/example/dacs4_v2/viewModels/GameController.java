@@ -9,6 +9,8 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -88,6 +90,14 @@ public class GameController {
     private Button btnSurrender;
     @FXML
     private Button btnExit;
+
+    // ==================== FXML COMPONENTS - CHAT ====================
+    @FXML
+    private ScrollPane chatScrollPane;
+    @FXML
+    private VBox chatMessagesBox;
+    @FXML
+    private TextField txtChatInput;
 
     // ==================== TRẠNG THÁI GAME ====================
     private Game game; // Đối tượng Game hiện tại
@@ -175,6 +185,7 @@ public class GameController {
         // Thiết lập listener nhận nước đi từ đối thủ (chỉ cho game P2P)
         if (!viewOnly && !isAIGame) {
             GameContext.getInstance().setMoveListener(this::onRemoteMoveReceived);
+            GameContext.getInstance().setChatListener(this::onChatMessageReceived);
             turnStartTime = System.currentTimeMillis();
             startTimer();
 
@@ -1019,5 +1030,105 @@ public class GameController {
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    // ==================== CHAT ====================
+
+    /**
+     * Gửi tin nhắn chat.
+     */
+    @FXML
+    private void onSendMessage() {
+        if (txtChatInput == null || viewOnly)
+            return;
+
+        String message = txtChatInput.getText().trim();
+        if (message.isEmpty())
+            return;
+
+        // Lấy tên người gửi
+        P2PNode node = P2PContext.getInstance().getOrCreateNode();
+        String senderName = node != null && node.getLocalUser() != null
+                ? node.getLocalUser().getName()
+                : "Bạn";
+
+        // Hiển thị tin nhắn của mình
+        addChatMessage(senderName, message, true);
+
+        // Xóa input
+        txtChatInput.clear();
+
+        // Gửi cho đối thủ qua RMI (nếu không phải AI game)
+        if (!isAIGame) {
+            sendChatToOpponent(message);
+        }
+    }
+
+    /**
+     * Thêm tin nhắn vào khung chat.
+     */
+    private void addChatMessage(String sender, String message, boolean isMe) {
+        if (chatMessagesBox == null)
+            return;
+
+        Platform.runLater(() -> {
+            VBox msgBox = new VBox(2);
+            msgBox.setStyle("-fx-padding: 6 10; -fx-background-radius: 12; " +
+                    (isMe ? "-fx-background-color: #3b82f6; -fx-alignment: CENTER_RIGHT;"
+                            : "-fx-background-color: #e2e8f0; -fx-alignment: CENTER_LEFT;"));
+
+            Label lblSender = new Label(sender);
+            lblSender.setStyle("-fx-font-size: 10; -fx-text-fill: " + (isMe ? "#dbeafe;" : "#64748b;"));
+
+            Label lblMessage = new Label(message);
+            lblMessage.setWrapText(true);
+            lblMessage.setStyle("-fx-font-size: 13; -fx-text-fill: " + (isMe ? "white;" : "#1e293b;"));
+
+            msgBox.getChildren().addAll(lblSender, lblMessage);
+            chatMessagesBox.getChildren().add(msgBox);
+
+            // Auto-scroll xuống cuối
+            if (chatScrollPane != null) {
+                chatScrollPane.setVvalue(1.0);
+            }
+        });
+    }
+
+    /**
+     * Gửi tin nhắn cho đối thủ qua RMI.
+     */
+    private void sendChatToOpponent(String message) {
+        new Thread(() -> {
+            try {
+                P2PNode node = P2PContext.getInstance().getOrCreateNode();
+                String myId = node != null && node.getLocalUser() != null
+                        ? node.getLocalUser().getUserId()
+                        : null;
+                String myName = node != null && node.getLocalUser() != null
+                        ? node.getLocalUser().getName()
+                        : "Unknown";
+
+                User rival = null;
+                if (myId != null && myId.equals(game.getUserId())) {
+                    rival = game.getRivalUser();
+                } else {
+                    rival = game.getHostUser();
+                }
+
+                if (rival != null) {
+                    IGoGameService remote = GoGameServiceImpl.getStub(rival);
+                    remote.sendChatMessage(game.getGameId(), myName, message);
+                }
+            } catch (Exception e) {
+                System.out.println("[Chat] Không thể gửi tin nhắn: " + e.getMessage());
+            }
+        }, "chat-send-thread").start();
+    }
+
+    /**
+     * Nhận tin nhắn từ đối thủ (được gọi từ GameContext).
+     */
+    public void onChatMessageReceived(String senderName, String message) {
+        addChatMessage(senderName, message, false);
     }
 }

@@ -1,5 +1,6 @@
 package org.example.dacs4_v2.game;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.example.dacs4_v2.models.Game;
 import org.example.dacs4_v2.models.Moves;
@@ -73,5 +74,25 @@ public class GameContext {
         currentGame = null;
         moveListener = null;
         exitCallback = null;
+        chatListener = null;
+    }
+
+    // ==================== CHAT ====================
+
+    // Chat listener: (senderName, message) -> void
+    private BiConsumer<String, String> chatListener;
+
+    /**
+     * Đăng ký listener để nhận tin nhắn chat.
+     */
+    public synchronized void setChatListener(BiConsumer<String, String> listener) {
+        this.chatListener = listener;
+    }
+
+    /**
+     * Lấy chat listener.
+     */
+    public synchronized BiConsumer<String, String> getChatListener() {
+        return chatListener;
     }
 }
