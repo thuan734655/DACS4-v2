@@ -1,39 +1,37 @@
 package org.example.dacs4_v2.network;
 
-import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.data.UserStorage;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.dht.BroadcastManager;
-import org.example.dacs4_v2.network.dht.DHTNode;
+import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
+import org.example.dacs4_v2.utils.GetIPV4;
 
-
-import java.net.*;
+import java.math.BigInteger;
+import java.rmi.NoSuchObjectException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.rmi.server.UnicastRemoteObject;
+import java.security.MessageDigest;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class P2PNode {
-
     private User localUser;
-    private DHTNode dhtNode;
     private BroadcastManager broadcastManager;
     private IGoGameService service;
     private Registry registry;
+    private final Object lock = new Object();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    private final List<User> onlinePeers = Collections.synchronizedList(new ArrayList<>());
-    private final TreeSet<User> listPeerRes = new TreeSet<>(  Comparator.comparing(User::getUserId));
+    private volatile User fastestOnlinePeer = null;
     private boolean started = false;
 
-    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
-
-
     public synchronized void start() throws Exception {
-        if (started) return;
+        if (started)
+            return;
+
+        closed.set(false);
 
         User stored = UserStorage.loadUser();
         if (stored == null) {
@@ -44,107 +42,257 @@ public class P2PNode {
         String userId = stored.getUserId();
         String serviceName = "GoGameService";
         int rank = stored.getRank();
-        int rmiPort = HelloApplication.rmiPort;
+        int rmiPort = 1099;
 
-        String hostIp = HelloApplication.ip;
-        System.out.println(hostIp);
+        NetworkRuntimeConfig cfg = P2PContext.getInstance().getRuntimeConfig();
+        if (cfg != null && cfg.getRmiPort() != null) {
+            rmiPort = cfg.getRmiPort();
+        }
 
-        this.localUser = new User(hostIp, name,rmiPort,rank,serviceName, userId);
+        String hostIp;
+
+        if (cfg != null && cfg.getIp() != null && !cfg.getIp().isBlank()) {
+            hostIp = cfg.getIp();
+
+        } else {
+            hostIp = GetIPV4.getLocalIp();
+        }
+        System.out.println(hostIp + "host ");
+
+        System.setProperty("java.rmi.server.hostname", hostIp);
+
+        this.localUser = new User(hostIp, name, rmiPort, rank, serviceName, userId);
         this.localUser.setRank(rank);
 
         this.service = new GoGameServiceImpl(localUser);
+        if (this.service instanceof GoGameServiceImpl) {
+            ((GoGameServiceImpl) this.service).startChordLite();
+        }
         this.registry = LocateRegistry.createRegistry(rmiPort);
         registry.rebind(serviceName, service);
 
-        this.dhtNode = new DHTNode(localUser);
         this.broadcastManager = new BroadcastManager(localUser);
 
         started = true;
     }
 
-    public void addOnlinePeer(User user) {
-        if (user == null) return;
-        synchronized (onlinePeers) {
-            boolean exists = onlinePeers.stream().anyMatch(u -> u.getUserId().equals(user.getUserId()));
-            if (!exists) {
-                onlinePeers.add(user);
-                listPeerRes.add(user);
-                defNeighbor();
-            }
-        }
+    public User getPredecessor() {
+        return localUser != null ? localUser.getNeighbor(NeighborType.PREDECESSOR) : null;
     }
 
-    public void defNeighbor() {
-        System.out.println("def");
-
-            try {
-                User prevPeer = listPeerRes.lower(localUser);
-                User succPeer = listPeerRes.higher(localUser);
-
-                localUser.setNeighbor(NeighborType.PREDECESSOR,prevPeer);
-                localUser.setNeighbor(NeighborType.SUCCESSOR,succPeer);
-                if(prevPeer != null)   {
-                    IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                    stubPrev.notifyAsSuccessor(localUser);
-                    System.out.println("prev peer info: " + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
-                }
-                if(succPeer != null) {
-                    IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                    stubSucc.notifyAsPredecessor(localUser);
-                    System.out.println("succ peer info: " + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
-                }
-
-            }catch (Exception e) {
-             e.printStackTrace();
-         }
+    public User getSuccessor() {
+        return localUser != null ? localUser.getNeighbor(NeighborType.SUCCESSOR) : null;
     }
-    public List<User> requestOnlinePeers(int timeoutMs) throws Exception {
-        start();
-        synchronized (onlinePeers) {
-            onlinePeers.clear();
+
+    public void getPeerWhenJoinNet() throws Exception {
+        synchronized (lock) {
+            fastestOnlinePeer = null;
         }
-        BroadcastMessage msg = new BroadcastMessage("DISCOVER_ONLINE", localUser.getUserId());
+
+        BroadcastMessage msg = new BroadcastMessage("ASK_ONLINE", localUser.getUserId());
+        msg.payload.put("requestId", msg.id);
         msg.payload.put("originConfig", localUser);
-        System.out.println("bat dau....");
-        broadcastManager.broadcast(msg);
+        msg.payload.put("message", "goi tin cua peer: " + localUser.getName());
+        msg.originatorPeerId = localUser.getUserId();
 
+        broadcastManager.SendMessage(msg);
+    }
+
+    public void joinDhtNetwork(int timeoutMs) throws Exception {
         long deadline = System.currentTimeMillis() + timeoutMs;
-        while (System.currentTimeMillis() < deadline) {
-            Thread.sleep(50);
+        User entry;
+        while (true) {
+            synchronized (lock) {
+                entry = fastestOnlinePeer;
+            }
+            if (entry != null)
+                break;
+            if (System.currentTimeMillis() >= deadline)
+                break;
+            Thread.sleep(20);
+        }
+        if (entry == null) {
+            localUser.setNeighbor(NeighborType.PREDECESSOR, localUser);
+            localUser.setNeighbor(NeighborType.SUCCESSOR, localUser);
+            P2PContext.getInstance().requestNeighborUiUpdate();
+            return;
+        }
+        insertIntoRingByHash(entry, 64);
+    }
+
+    private void insertIntoRingByHash(User entry, int maxHops) throws Exception {
+        BigInteger x = hashKey(localUser.getUserId());
+
+        User current = entry;
+        for (int hop = 0; hop < maxHops; hop++) {
+            IGoGameService stubCurrent = GoGameServiceImpl.getStub(current);
+            User succ = stubCurrent.getSuccessor();
+
+            if (succ == null) {
+                succ = current;
+            }
+
+            BigInteger c = hashKey(current.getUserId());
+            BigInteger s = hashKey(succ.getUserId());
+
+            if (between(c, x, s)) {
+                localUser.setNeighbor(NeighborType.PREDECESSOR, current);
+                localUser.setNeighbor(NeighborType.SUCCESSOR, succ);
+
+                P2PContext.getInstance().requestNeighborUiUpdate();
+
+                stubCurrent.notifyAsSuccessor(localUser);
+                IGoGameService stubSucc = GoGameServiceImpl.getStub(succ);
+                stubSucc.notifyAsPredecessor(localUser);
+                System.out.println("da cap nhat prev peer cua " + localUser.getName() + " la: "
+                        + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
+                System.out.println("da cap nhat prev succ cua " + localUser.getName() + " la: "
+                        + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
+                return;
+            }
+
+            current = succ;
         }
 
-        synchronized (onlinePeers) {
-            return new ArrayList<>(onlinePeers);
+        localUser.setNeighbor(NeighborType.PREDECESSOR, entry);
+        localUser.setNeighbor(NeighborType.SUCCESSOR, entry);
+
+        P2PContext.getInstance().requestNeighborUiUpdate();
+        IGoGameService stubEntry = GoGameServiceImpl.getStub(entry);
+        stubEntry.notifyAsSuccessor(localUser);
+        stubEntry.notifyAsPredecessor(localUser);
+
+        System.out.println("da cap nhat prev peer cua " + localUser.getName() + " la: "
+                + localUser.getNeighbor(NeighborType.PREDECESSOR).getName());
+        System.out.println("da cap nhat prev succ cua " + localUser.getName() + " la: "
+                + localUser.getNeighbor(NeighborType.SUCCESSOR).getName());
+    }
+
+    private BigInteger hashKey(String userId) throws Exception {
+        if (userId == null) {
+            return BigInteger.ZERO;
         }
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        byte[] digest = md.digest(userId.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return new BigInteger(1, digest);
+    }
+
+    private boolean between(BigInteger a, BigInteger x, BigInteger b) {
+        int ab = a.compareTo(b);
+        if (ab < 0) {
+            return a.compareTo(x) < 0 && x.compareTo(b) <= 0;
+        }
+        if (ab > 0) {
+            return x.compareTo(a) > 0 || x.compareTo(b) <= 0;
+        }
+        return true;
+    }
+
+    public void firstPeerOnNet(User user) {
+        synchronized (lock) {
+            if (fastestOnlinePeer != null)
+                return;
+            fastestOnlinePeer = user;
+        }
+        new Thread(() -> {
+            try {
+                joinDhtNetwork(400);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+    public User getFastestOnlinePeer() {
+        return fastestOnlinePeer;
     }
 
     public static String getBroadcastIP(String ip) {
-        String [] subIp = ip.split("\\.");
-        return subIp[0] + "." + subIp[1] + "."  + subIp[2] + ".255";
+        String[] subIp = ip.split("\\.");
+        return subIp[0] + "." + subIp[1] + "." + subIp[2] + ".255";
     }
-    public void shutdown() {
-        try {
-            if (broadcastManager != null) {
-                broadcastManager.close();
-                User prevPeer = listPeerRes.lower(localUser);
-                User succPeer = listPeerRes.higher(localUser);
-                try { // gan lai peer
-                    if(prevPeer != null)   {
-                        IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
-                        stubPrev.notifyAsPredecessor(succPeer);
-                    }
-                    if(succPeer != null) {
-                        IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
-                        stubSucc.notifyAsSuccessor(prevPeer);
-                    }
 
-                    System.out.println(localUser.getNeighbor(NeighborType.SUCCESSOR) + "succ");
-                    System.out.println(localUser.getNeighbor(NeighborType.PREDECESSOR ) +  "pree");
-                }catch (Exception e) {
+    public void shutdown() {
+        if (!closed.compareAndSet(false, true))
+            return;
+
+        User me = this.localUser;
+        if (me != null) {
+            User prevPeer = me.getNeighbor(NeighborType.PREDECESSOR);
+            User succPeer = me.getNeighbor(NeighborType.SUCCESSOR);
+
+            boolean hasRing = prevPeer != null && succPeer != null;
+            boolean singleNode = hasRing && prevPeer.getUserId() != null && succPeer.getUserId() != null
+                    && prevPeer.getUserId().equals(me.getUserId())
+                    && succPeer.getUserId().equals(me.getUserId());
+            if (hasRing && !singleNode) {
+                try {
+                    if (prevPeer.getUserId() != null && !prevPeer.getUserId().equals(me.getUserId())) {
+                        IGoGameService stubPrev = GoGameServiceImpl.getStub(prevPeer);
+                        stubPrev.notifyAsSuccessor(succPeer);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
+                    if (succPeer.getUserId() != null && !succPeer.getUserId().equals(me.getUserId())) {
+                        IGoGameService stubSucc = GoGameServiceImpl.getStub(succPeer);
+                        stubSucc.notifyAsPredecessor(prevPeer);
+                    }
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
-        } catch (Exception ignored) {}
+
+            me.setNeighbor(NeighborType.PREDECESSOR, me);
+            me.setNeighbor(NeighborType.SUCCESSOR, me);
+
+            P2PContext.getInstance().requestNeighborUiUpdate();
+        }
+
+        BroadcastManager bm = this.broadcastManager;
+        if (bm != null) {
+            try {
+                bm.close();
+            } catch (Exception ignored) {
+            }
+        }
+
+        Registry reg = this.registry;
+        IGoGameService svc = this.service;
+        if (svc instanceof GoGameServiceImpl) {
+            ((GoGameServiceImpl) svc).stopChordLite();
+        }
+        if (reg != null && me != null) {
+            try {
+                String serviceName = me.getServiceName();
+                if (serviceName != null && !serviceName.isBlank()) {
+                    reg.unbind(serviceName);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (svc != null) {
+            try {
+                UnicastRemoteObject.unexportObject(svc, true);
+            } catch (NoSuchObjectException ignored) {
+            }
+        }
+        if (reg != null) {
+            try {
+                UnicastRemoteObject.unexportObject(reg, true);
+            } catch (NoSuchObjectException ignored) {
+            }
+        }
+
+        this.broadcastManager = null;
+        this.registry = null;
+        this.service = null;
+
+        synchronized (lock) {
+            fastestOnlinePeer = null;
+        }
+        started = false;
     }
 
     public User getLocalUser() {

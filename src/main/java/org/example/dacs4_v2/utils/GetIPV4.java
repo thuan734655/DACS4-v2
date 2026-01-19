@@ -35,5 +35,4 @@ public class GetIPV4 {
         System.out.println(fallback + "mang");
         return fallback;
     }
-
 }

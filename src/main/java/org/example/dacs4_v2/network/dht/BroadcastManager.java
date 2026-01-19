@@ -1,148 +1,216 @@
 package org.example.dacs4_v2.network.dht;
 
-import org.example.dacs4_v2.HelloApplication;
 import org.example.dacs4_v2.models.*;
 import org.example.dacs4_v2.network.P2PContext;
-import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.NetworkRuntimeConfig;
 import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.io.*;
 import java.net.*;
+import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BroadcastManager {
-
-    private static final int BROADCAST_PORT = 9876;
-
-    private final DatagramSocket recvSocket;
-    private final DatagramSocket sendSocket;
+    private final int MULTICAST_PORT;
+    private  MulticastSocket socket = null;
     private final User localUser;
+    private InetAddress group;
 
-    private final BlockingQueue<BroadcastMessage> messageQueue =
-            new LinkedBlockingQueue<>(1000);
+    private final BlockingQueue<BroadcastMessage> messageQueue = new LinkedBlockingQueue<>(1000);
+    private final ExecutorService workerPool = Executors.newFixedThreadPool(10);
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final ConcurrentHashMap<String, ScheduledFuture<?>> pendingReplyByRequestId = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicBoolean> clearedByRequestId = new ConcurrentHashMap<>();
+    private final int MIN_DELAY_MS = 50;
+    private final int MAX_DELAY_MS = 400;
 
-    private final ExecutorService workerPool =
-            Executors.newFixedThreadPool(4);
+    private final AtomicBoolean running = new AtomicBoolean(true);
+    private Thread receiverThread;
 
-    public BroadcastManager(User user) throws Exception {
+    public BroadcastManager(User user) {
         this.localUser = user;
 
-        recvSocket = new DatagramSocket(null);
-        recvSocket.setReuseAddress(true);
-        recvSocket.setBroadcast(true);
-        recvSocket.bind(new InetSocketAddress(BROADCAST_PORT));
-        sendSocket = new DatagramSocket(
-                new InetSocketAddress(
-                        InetAddress.getByName(HelloApplication.ip),
-                        0
-                )
-        );
-        sendSocket.setBroadcast(true);
+        int port = 9876;
+        this.MULTICAST_PORT = port;
+        try {
+            this.group = InetAddress.getByName("239.255.0.1");
+            this.socket = new MulticastSocket(null);
+            this.socket.setReuseAddress(true);
+            this.socket.bind(new InetSocketAddress(MULTICAST_PORT));
+
+            this.socket.setTimeToLive(1);
+
+            NetworkInterface nif = null;
+            try {
+                if (localUser.getHost() != null && !localUser.getHost().isBlank()) {
+                    nif = NetworkInterface.getByInetAddress(InetAddress.getByName(localUser.getHost()));
+                }
+            } catch (Exception ignored) {}
+
+            if (nif != null) {
+                this.socket.setNetworkInterface(nif);
+                this.socket.joinGroup(new InetSocketAddress(group, MULTICAST_PORT), nif);
+            } else {
+                this.socket.joinGroup(group);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         startReceiver();
         startWorkers();
     }
 
+    // Nhận gói broadcast
     private void startReceiver() {
-        Thread t = new Thread(() -> {
-            byte[] buf = new byte[8192];
-            DatagramPacket packet = new DatagramPacket(buf, buf.length);
-
-            while (!recvSocket.isClosed()) {
+        receiverThread = new Thread(() -> {
+            byte[] buffer = new byte[8192];
+            DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+            while (running.get() && !Thread.currentThread().isInterrupted()) {
                 try {
-                    recvSocket.receive(packet);
-
-                    String senderIp = packet.getAddress().getHostAddress();
-                    if (senderIp.equals(localUser.getHost())) {
-                        System.out.println(" skip");
-                        continue;
-                    }
-
+                    socket.receive(packet);
                     Object obj = deserialize(packet.getData(), packet.getLength());
 
-                    if (obj instanceof BroadcastMessage msg) {
+                    if (obj instanceof BroadcastMessage) {
+                        BroadcastMessage msg = (BroadcastMessage) obj;
+                        if (msg.originatorPeerId != null && msg.originatorPeerId.equals(localUser.getUserId())) {
+                            continue;
+                        }
                         messageQueue.offer(msg);
                     }
                 } catch (Exception e) {
-                    if (!recvSocket.isClosed()) {
-                        e.printStackTrace();
+                    if (socket == null || socket.isClosed() || !running.get()) {
+                        break;
                     }
+                    e.printStackTrace();
                 }
             }
         });
-
-        t.setDaemon(true);
-        t.start();
+        receiverThread.setDaemon(true);
+        receiverThread.start();
     }
 
     private void startWorkers() {
-        for (int i = 0; i < 4; i++) {
-            int idx = i;
+        for (int i = 0; i < 10; i++) {
             workerPool.submit(() -> {
-                while (true) {
+                while (!Thread.currentThread().isInterrupted()) {
                     try {
                         BroadcastMessage msg = messageQueue.take();
-                        handleBroadcast(msg);
+                        handleMulticastLogic(msg);
                     } catch (InterruptedException e) {
-                        break;
+                        Thread.currentThread().interrupt();
                     }
                 }
             });
         }
     }
 
-    public void broadcast(BroadcastMessage msg) {
-        try {
+    public void SendMessage(BroadcastMessage msg) {
+        try{
+            if (!running.get() || socket == null || socket.isClosed()) return;
             byte[] data = serialize(msg);
-
-            String bcIp = P2PNode.getBroadcastIP(HelloApplication.ip);
-            InetAddress broadcastAddr = InetAddress.getByName(bcIp);
-
-            DatagramPacket packet = new DatagramPacket(
-                    data,
-                    data.length,
-                    broadcastAddr,
-                    BROADCAST_PORT
-            );
-
-            sendSocket.send(packet);
-
+            DatagramPacket datagramPacket = new DatagramPacket(data, data.length, group, MULTICAST_PORT);
+            socket.send(datagramPacket);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void handleBroadcast(BroadcastMessage msg) {
+    private void handleMulticastLogic(BroadcastMessage msg) {
         switch (msg.type) {
-
-            case "DISCOVER_ONLINE" -> {
-                User origin = (User) msg.payload.get("originConfig");
-                if (origin != null) {
-                    try {
-
-                        P2PContext ctx = P2PContext.getInstance();
-                        if (ctx.getNode() != null) {
-                            System.out.println("them peer " + origin.getName());
-                            ctx.getNode().addOnlinePeer(origin);
-                        }
-
-                        IGoGameService stub = GoGameServiceImpl.getStub(origin);
-                        stub.onOnlinePeerDiscovered(localUser);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+            case "ASK_ONLINE": {
+                handleAskOnline(msg);
+                break;
+            }
+            case "CLEAR_ONLINE": {
+                handleClearOnline(msg);
+                break;
+            }
+            case "LOOKUP_PEER": {
+                String targetId = (String) msg.payload.get("targetPeerId");
+                if (localUser.getUserId().equals(targetId)) {
+                    System.out.println("[DHT] Tôi được lookup: " + targetId);
                 }
+                break;
             }
-
-            case "LOOKUP_PEER" -> {
-
-            }
-
-            default -> System.out.println("[HANDLE] Unknown type");
         }
     }
 
-    /* ================= UTILS ================= */
+    private void handleAskOnline(BroadcastMessage msg) {
+        String requestIdRaw = (String) msg.payload.get("requestId");
+        String requestId = (requestIdRaw == null || requestIdRaw.isBlank()) ? msg.id : requestIdRaw;
+        final String reqId = requestId;
+
+        User originConfigRaw = (User) msg.payload.get("originConfig");
+        if (originConfigRaw == null) return;
+        final User originConfig = originConfigRaw;
+
+
+
+        AtomicBoolean cleared = clearedByRequestId.computeIfAbsent(reqId, k -> new AtomicBoolean(false));
+        if (cleared.get()) return;
+
+        ScheduledFuture<?> existing = pendingReplyByRequestId.get(reqId);
+        if (existing != null) return;
+
+        int delayMs = computeDelayMs(reqId, originConfig.getUserId(), localUser.getUserId());
+        ScheduledFuture<?> future = scheduler.schedule(() -> {
+            try {
+                AtomicBoolean c = clearedByRequestId.computeIfAbsent(reqId, k -> new AtomicBoolean(false));
+                if (c.get()) return;
+
+                // gui thong tin cua minh cho peer khac (chi 1 peer thang cuoc se gui)
+                IGoGameService stub = GoGameServiceImpl.getStub(originConfig);
+                stub.onOnlinePeerDiscovered(localUser);
+
+                // thong bao clear cho cac peer khac trong group
+                BroadcastMessage clearMsg = new BroadcastMessage("CLEAR_ONLINE", localUser.getUserId());
+                clearMsg.payload.put("requestId", reqId);
+                clearMsg.payload.put("winnerUserId", localUser.getUserId());
+                clearMsg.payload.put("message" , localUser.getName());
+                SendMessage(clearMsg);
+
+
+                c.set(true);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                pendingReplyByRequestId.remove(reqId);
+            }
+        }, delayMs, TimeUnit.MILLISECONDS);
+
+        ScheduledFuture<?> prev = pendingReplyByRequestId.putIfAbsent(reqId, future);
+        if (prev != null) {
+            future.cancel(false);
+        }
+    }
+
+    private void handleClearOnline(BroadcastMessage msg) {
+        String requestId = (String) msg.payload.get("requestId");
+        if (requestId == null || requestId.isBlank()) {
+            requestId = msg.id;
+        }
+        if (requestId == null || requestId.isBlank() ) return;
+
+        AtomicBoolean cleared = clearedByRequestId.computeIfAbsent(requestId, k -> new AtomicBoolean(false));
+        cleared.set(true);
+
+        ScheduledFuture<?> future = pendingReplyByRequestId.remove(requestId);
+        if (future != null) {
+            future.cancel(false);
+        }
+    }
+
+    private int computeDelayMs(String requestId, String originUserId, String receiverUserId) {
+        String seed = String.valueOf(requestId) + "|" + String.valueOf(originUserId) + "|" + String.valueOf(receiverUserId);
+        int h = seed.hashCode();
+        int positive = h & 0x7fffffff;
+        int range = (MAX_DELAY_MS - MIN_DELAY_MS) + 1;
+        return MIN_DELAY_MS + (positive % range);
+    }
+
+    // Serialize/Deserialize helper
     private byte[] serialize(Object obj) throws IOException {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
@@ -151,17 +219,32 @@ public class BroadcastManager {
         return bos.toByteArray();
     }
 
-    private Object deserialize(byte[] data, int len)
-            throws IOException, ClassNotFoundException {
+    private Object deserialize(byte[] data, int len) throws IOException, ClassNotFoundException {
         ByteArrayInputStream bis = new ByteArrayInputStream(data, 0, len);
         ObjectInputStream ois = new ObjectInputStream(bis);
         return ois.readObject();
     }
 
     public void close() {
-        System.out.println("[CLOSE] sockets");
-        recvSocket.close();
-        sendSocket.close();
+        if (!running.compareAndSet(true, false)) return;
+
+        for (Map.Entry<String, ScheduledFuture<?>> e : pendingReplyByRequestId.entrySet()) {
+            ScheduledFuture<?> f = e.getValue();
+            if (f != null) {
+                f.cancel(false);
+            }
+        }
+        pendingReplyByRequestId.clear();
+        clearedByRequestId.clear();
+
+        if (receiverThread != null) {
+            receiverThread.interrupt();
+        }
+        if (socket != null && !socket.isClosed()) {
+            socket.close();
+        }
+
         workerPool.shutdownNow();
+        scheduler.shutdownNow();
     }
 }

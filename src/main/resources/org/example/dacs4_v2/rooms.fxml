@@ -21,16 +21,14 @@
                 <Label style="-fx-font-size: 18; -fx-font-weight: bold; -fx-text-fill: #094c4c;" text="Go Game Online" />
                 <Separator />
 
-                <ToggleButton maxWidth="Infinity" onAction="#onGoDashboard" styleClass="nav-button" text="Dashboard" />
-                <ToggleButton maxWidth="Infinity" styleClass="nav-button" text="Play Game" />
-                <ToggleButton maxWidth="Infinity" onAction="#onGoRooms" selected="true" styleClass="nav-button-selected" text="Rooms" />
-                <ToggleButton maxWidth="Infinity" styleClass="nav-button" text="Statistics" />
+                <ToggleButton maxWidth="Infinity" onAction="#onGoDashboard" 
+                    style="-fx-cursor: hand; -fx-background-color: transparent; -fx-text-fill: #374151; -fx-background-radius: 8;" text="Dashboard" />
+                <ToggleButton maxWidth="Infinity" onAction="#onGoRooms" selected="true" 
+                    style="-fx-cursor: hand; -fx-background-color: #e0f2fe; -fx-text-fill: #0369a1; -fx-font-weight: bold; -fx-background-radius: 8;" text="Games" />
+                <ToggleButton maxWidth="Infinity" onAction="#onGoHistory" 
+                    style="-fx-cursor: hand; -fx-background-color: transparent; -fx-text-fill: #374151; -fx-background-radius: 8;" text="History" />
 
                 <Pane VBox.vgrow="ALWAYS" />
-
-                <Separator />
-                <Button maxWidth="Infinity" text="Settings" />
-                <Button maxWidth="Infinity" style="-fx-text-fill: #e04545;" text="Logout" />
             </children>
         </VBox>
     </left>
@@ -42,73 +40,28 @@
                 <!-- Top bar -->
                 <HBox alignment="CENTER_RIGHT" spacing="16">
                     <children>
-                        <Label style="-fx-font-size: 22; -fx-font-weight: bold;" text="Available Rooms" HBox.hgrow="ALWAYS" />
+                        <Label style="-fx-font-size: 22; -fx-font-weight: bold;" text="Games" HBox.hgrow="ALWAYS" />
                         <Label style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 6 12; -fx-background-radius: 999;" text="Online" />
-                        <Button style="-fx-background-color: #ffe3d1; -fx-text-fill: #d96b2b; -fx-background-radius: 999;" text="Play AI" />
-                        <Button onAction="#onCreateRoom" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;" text="Create Room" />
+                        <Button onAction="#onPlayAI" style="-fx-cursor: hand; -fx-background-color: #ffe3d1; -fx-text-fill: #d96b2b; -fx-background-radius: 999;" text="Play AI" />
+                        <Button onAction="#onCreateRoom" style="-fx-cursor: hand; -fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;" text="Invite Game" />
                     </children>
                 </HBox>
 
                 <!-- Search & filters -->
                 <HBox alignment="CENTER_LEFT" spacing="12">
                     <children>
-                        <TextField fx:id="searchField" promptText="Search rooms..." HBox.hgrow="ALWAYS" />
+                        <TextField fx:id="searchField" promptText="Search games..." HBox.hgrow="ALWAYS" />
                         <ToggleButton selected="true" text="All" />
-                        <ToggleButton text="Available" />
-                        <ToggleButton text="Ranked" />
                     </children>
                 </HBox>
 
-                <!-- Rooms list -->
+                <!-- Games list -->
                 <ScrollPane fitToWidth="true" hbarPolicy="NEVER" VBox.vgrow="ALWAYS">
                     <content>
-                        <FlowPane hgap="16" vgap="16">
+                        <FlowPane fx:id="gamesFlow" hgap="16" vgap="16">
                             <padding>
                                 <Insets bottom="4" left="4" right="4" top="4" />
                             </padding>
-
-                            <!-- Example room card -->
-                            <children>
-                                <VBox prefWidth="340" spacing="12" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);">
-                                    <children>
-                                        <HBox alignment="CENTER_LEFT" spacing="8">
-                                            <children>
-                                                <Label style="-fx-font-size: 16; -fx-font-weight: bold;" text="Casual Game 19x19" HBox.hgrow="ALWAYS" />
-                                                <Label style="-fx-background-color: #e1f8e9; -fx-text-fill: #1b9a55; -fx-padding: 4 10; -fx-background-radius: 999;" text="Waiting" />
-                                            </children>
-                                        </HBox>
-                                        <HBox spacing="16" style="-fx-text-fill: #6b7280; -fx-font-size: 12;">
-                                            <children>
-                                                <Label text="1/2 players" />
-                                                <Label text="10 min" />
-                                                <Label text="Any level" />
-                                            </children>
-                                        </HBox>
-                                        <Button maxWidth="Infinity" style="-fx-background-color: #005b63; -fx-text-fill: white; -fx-background-radius: 999;" text="Join Game" />
-                                    </children>
-                                </VBox>
-
-                                <!-- More static sample cards; sau này có thể tạo động bằng ListView -->
-                                <VBox prefWidth="340" spacing="12" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0.1, 0, 2);">
-                                    <children>
-                                        <HBox alignment="CENTER_LEFT" spacing="8">
-                                            <children>
-                                                <Label style="-fx-font-size: 16; -fx-font-weight: bold;" text="Blitz Battle" HBox.hgrow="ALWAYS" />
-                                                <Label style="-fx-background-color: #ffe3d1; -fx-text-fill: #d96b2b; -fx-padding: 4 10; -fx-background-radius: 999;" text="Ranked" />
-                                                <Label style="-fx-background-color: #e0ebff; -fx-text-fill: #2563eb; -fx-padding: 4 10; -fx-background-radius: 999;" text="Playing" />
-                                            </children>
-                                        </HBox>
-                                        <HBox spacing="16" style="-fx-text-fill: #6b7280; -fx-font-size: 12;">
-                                            <children>
-                                                <Label text="2/2 players" />
-                                                <Label text="5 min" />
-                                                <Label text="Any level" />
-                                            </children>
-                                        </HBox>
-                                        <Button maxWidth="Infinity" style="-fx-background-color: #9ca3af; -fx-text-fill: white; -fx-background-radius: 999;" text="Spectate" />
-                                    </children>
-                                </VBox>
-                            </children>
                         </FlowPane>
                     </content>
                 </ScrollPane>

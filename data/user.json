@@ -1,6 +1,28 @@
 {
   "userId": "C",
-  "name": "THUAN4",
-  "rank": 1000,
-  "neighbors": {}
+  "name": "t2",
+  "rank": 1040,
+  "port": 1099,
+  "serviceName": "GoGameService",
+  "host": "172.20.10.3",
+  "neighbors": {
+    "SUCCESSOR": {
+      "userId": "B",
+      "name": "t8",
+      "rank": 1040,
+      "port": 1234,
+      "serviceName": "GoGameService",
+      "host": "172.20.10.6",
+      "neighbors": {}
+    },
+    "PREDECESSOR": {
+      "userId": "B",
+      "name": "t8",
+      "rank": 1040,
+      "port": 1234,
+      "serviceName": "GoGameService",
+      "host": "172.20.10.6",
+      "neighbors": {}
+    }
+  }
 }

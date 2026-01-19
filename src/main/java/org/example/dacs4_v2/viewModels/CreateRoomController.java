@@ -7,10 +7,13 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.Region;
 import javafx.stage.Stage;
+import org.example.dacs4_v2.data.GameHistoryStorage;
 import org.example.dacs4_v2.models.Game;
+import org.example.dacs4_v2.models.GameStatus;
 import org.example.dacs4_v2.models.User;
 import org.example.dacs4_v2.network.P2PContext;
 import org.example.dacs4_v2.network.P2PNode;
+import org.example.dacs4_v2.network.rmi.GoGameServiceImpl;
 import org.example.dacs4_v2.network.rmi.IGoGameService;
 
 import java.security.SecureRandom;
@@ -33,6 +36,14 @@ public class CreateRoomController {
     private Label lblStatus;
 
     private static final SecureRandom RANDOM = new SecureRandom();
+
+    public void prefillOpponentPeerId(String peerId, boolean lockField) {
+        if (txtOpponentPeerId == null) {
+            return;
+        }
+        txtOpponentPeerId.setText(peerId != null ? peerId : "");
+        txtOpponentPeerId.setDisable(lockField);
+    }
 
     @FXML
     public void initialize() {
@@ -95,8 +106,14 @@ public class CreateRoomController {
             String rivalId = opponentPeerId;
 
             Game game = new Game(gameId, hostPeerId, userId, rivalId, boardSize, komiInt, name);
+            // Host tạo record lịch sử ngay khi gửi invite.
+            game.setStatus(GameStatus.INVITE_SENT);
+            game.setCreatedAt(System.currentTimeMillis());
+            // Lưu snapshot User (không lưu neighbors) để tránh serialize graph lớn vào history/RMI.
+            User hostSnapshot = new User(local.getHost(), local.getName(), local.getPort(), local.getRank(), local.getServiceName(), local.getUserId());
+            game.setHostUser(hostSnapshot);
 
-            // Lookup đối thủ qua DHT
+            // Lookup đối thủ qua DHT (Chord-lite) để biết host/port/serviceName của peer đích.
             IGoGameService localService = node.getService();
             if (localService == null) {
                 setStatus("Service not ready");
@@ -107,6 +124,14 @@ public class CreateRoomController {
             if (targetConfig == null) {
                 setStatus("Opponent not found or offline");
                 return;
+            }
+            User rivalSnapshot = new User(targetConfig.getHost(), targetConfig.getName(), targetConfig.getPort(), targetConfig.getRank(), targetConfig.getServiceName(), targetConfig.getUserId());
+            game.setRivalUser(rivalSnapshot);
+            GameHistoryStorage.upsert(game);
+
+            if (localService instanceof GoGameServiceImpl impl) {
+                // Đăng ký game vào service local để host có thể nhận callback accept/decline sau này.
+                impl.registerOutgoingGame(game);
             }
 
             IGoGameService targetStub = node.getService();

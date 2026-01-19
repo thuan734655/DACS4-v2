@@ -10,9 +10,9 @@
             <padding>
                 <Insets top="40" right="40" bottom="40" left="40"/>
             </padding>
-            <Label text="Go Game - Đăng nhập" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
-            <TextField fx:id="txtName" promptText="Nhập tên của bạn" maxWidth="240"/>
-            <Button text="Đăng nhập" onAction="#onLogin" maxWidth="120"/>
+            <Label text="Go Game - Login" style="-fx-font-size: 24px; -fx-font-weight: bold;"/>
+            <TextField fx:id="txtName" promptText="Enter your name" maxWidth="240"/>
+            <Button text="Login" onAction="#onLogin" maxWidth="120"/>
         </VBox>
     </center>
 </BorderPane>
